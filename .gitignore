@@ -41,3 +41,6 @@ public/image/profile/*
 
 # Test
 test/
+
+# External Repos
+frontend_repo/

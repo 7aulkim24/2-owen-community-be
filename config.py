@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     # 디버그 모드
     debug: bool = False
 
+    # CORS 설정
+    allowed_origins: list[str] = [
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "http://localhost:5501",
+        "http://127.0.0.1:5501",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ]
+
     class Config:
         """Pydantic 설정"""
         env_file = ".env"
