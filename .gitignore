@@ -21,8 +21,11 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual Environment# 환경 변수 파일
 .env
+.env.production
+.env.*
+!.env.production.template
 .venv
 venv/
 ENV/

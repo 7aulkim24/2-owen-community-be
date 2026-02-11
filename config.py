@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # 보안 키
     secret_key: str
 
+    # CORS 설정 (쉼표로 구분된 URL 목록)
+    allowed_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
+
     # DB 설정
     db_host: str
     db_port: int = 3306
@@ -35,6 +38,10 @@ class Settings(BaseSettings):
         """Pydantic 설정"""
         env_file = ".env"
         case_sensitive = False  # 환경 변수명 대소문자 구분하지 않음
+
+    def get_allowed_origins_list(self) -> list:
+        """CORS allowed origins를 리스트로 반환"""
+        return [origin.strip() for origin in self.allowed_origins.split(",")]
 
 
 # 설정 인스턴스 생성 (서버 시작 시 자동 검증)
