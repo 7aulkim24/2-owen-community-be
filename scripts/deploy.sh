@@ -9,7 +9,9 @@ echo "===== 백엔드 EC2 배포 시작 ====="
 
 # 설정
 FRONTEND_EC2_NAME="${1:-community-frontend}"
-PROJECT_DIR="/home/ec2-user/assignment/2-owen-community-be"
+# 스크립트 위치 기준으로 프로젝트 디렉토리 감지
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SECRET_KEY="${AWS_SECRET_KEY:-CHANGE_THIS_IN_ENV_VAR}"
 DB_PASSWORD="${AWS_DB_PASSWORD:-CHANGE_THIS_IN_ENV_VAR}"
 
