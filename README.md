@@ -49,5 +49,11 @@ FastAPI 기반의 고성능 커뮤니티 백엔드 API입니다. 실무 수준�
 4. **실행**: `uvicorn main:app --reload` 명령어로 서버 시작
 5. **API 문서**: `http://localhost:8000/docs` 에서 Swagger UI 확인
 
+## EC2 배포 요약 (최신)
+- 서비스 실행 방식을 `nohup`에서 `systemd`(`community-be.service`)로 전환했습니다.
+- 배포 스크립트는 `FRONTEND_ORIGIN` 직접 지정 또는 EC2 태그 조회를 지원합니다.
+- CORS는 `ALLOWED_ORIGINS`(쉼표 구분) 기반으로 동작하며 로컬 QA origin을 함께 허용할 수 있습니다.
+- 상세 절차는 `docs/DEPLOY_QA.md`를 참고하세요.
+
 ---
 *AWS AI School 2기 과제물*

@@ -41,7 +41,10 @@ class Settings(BaseSettings):
 
     def get_allowed_origins_list(self) -> list:
         """CORS allowed origins를 리스트로 반환"""
-        return [origin.strip() for origin in self.allowed_origins.split(",")]
+        origins = [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+        if origins:
+            return origins
+        return ["http://localhost:5500", "http://127.0.0.1:5500"]
 
 
 # 설정 인스턴스 생성 (서버 시작 시 자동 검증)
