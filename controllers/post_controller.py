@@ -13,6 +13,7 @@ class PostController:
         self,
         post: Dict,
         current_user_id: Optional[str] = None,
+        images: Optional[List[Dict]] = None,
     ) -> PostResponse:
         """Post 데이터를 API 응답 규격에 맞게 변환"""
         author_id = post["authorId"]
@@ -31,7 +32,10 @@ class PostController:
             is_liked = await post_model.isLikedByUser(post["postId"], current_user_id)
         
         # 다중 이미지 처리
-        post_images = await post_model.getPostImages(post["postId"])
+        if images is not None:
+            post_images = images
+        else:
+            post_images = await post_model.getPostImages(post["postId"])
         from schemas import PostImage
         files_list = [
             PostImage(
@@ -62,7 +66,11 @@ class PostController:
         posts_data = result["posts"]
         total_count = result["totalCount"]
 
-        formatted_posts = [await self._formatPost(post, current_user_id=current_user_id) for post in posts_data]
+        # N+1 문제 해결을 위한 배치 이미지 조회
+        post_ids = [post["postId"] for post in posts_data]
+        images_batch = await post_model.getPostImagesBatch(post_ids)
+
+        formatted_posts = [await self._formatPost(post, current_user_id=current_user_id, images=images_batch.get(post["postId"], [])) for post in posts_data]
         
         # 페이징 메타데이터 계산
         total_page = (total_count + limit - 1) // limit if total_count > 0 else 0

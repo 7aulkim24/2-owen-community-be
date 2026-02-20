@@ -298,6 +298,28 @@ class PostModel:
             for row in rows
         ]
 
+    async def getPostImagesBatch(self, postIds: List[Union[str, any]]) -> Dict[str, List[Dict]]:
+        """여러 게시글의 이미지 리스트를 한번에 조회 (N+1 문제 해결)"""
+        if not postIds:
+            return {}
+        
+        normalized_ids = [self._normalizeId(pid) for pid in postIds]
+        placeholders = ", ".join(["%s"] * len(normalized_ids))
+        rows = await fetch_all(
+            f"SELECT image_id, post_id, image_url, sort_order FROM post_images WHERE post_id IN ({placeholders}) ORDER BY post_id, sort_order ASC",
+            tuple(normalized_ids),
+        )
+        
+        result = {pid: [] for pid in normalized_ids}
+        for row in rows:
+            result[row["post_id"]].append({
+                "imageId": row["image_id"],
+                "postId": row["post_id"],
+                "imageUrl": row["image_url"],
+                "sortOrder": row["sort_order"],
+            })
+        return result
+
     async def addPostImages(self, postId: Union[str, any], imageUrls: List[str]) -> int:
         """게시글에 여러 이미지 추가"""
         if not imageUrls:
