@@ -1,7 +1,6 @@
 from typing import List, Dict, Union
 from models.comment_model import comment_model
 from models.post_model import post_model
-from models.user_model import user_model
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
 from schemas import CommentCreateRequest, CommentUpdateRequest, CommentResponse, CommentAuthor, ResourceError
@@ -12,15 +11,11 @@ class CommentController:
 
     async def _formatComment(self, comment: Dict) -> CommentResponse:
         """Comment 데이터를 API 응답 규격에 맞게 변환"""
-        author = await user_model.getUserById(comment["userId"])
-        
-        # 최신 닉네임 우선 사용
-        nickname = author.get("nickname") if author else comment["userNickname"]
-        
+        # JOIN으로 가져온 최신 사용자 정보 사용 (N+1 문제 해결)
         author_data = CommentAuthor(
             userId=comment["userId"],
-            nickname=nickname,
-            profileImageUrl=author.get("profileImageUrl") if author else None
+            nickname=comment.get("userNickname"),
+            profileImageUrl=comment.get("userProfileImageUrl")
         )
 
         return CommentResponse(

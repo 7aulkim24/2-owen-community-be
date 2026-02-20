@@ -23,6 +23,7 @@ class CommentModel:
             "postId": row["post_id"],
             "userId": row["user_id"],
             "userNickname": row.get("user_nickname"),
+            "userProfileImageUrl": row.get("user_profile_image_url"),
             "content": row["content"],
             "createdAt": self._format_datetime(row.get("created_at")),
             "updatedAt": self._format_datetime(row.get("updated_at")),
@@ -71,6 +72,7 @@ class CommentModel:
                 c.post_id,
                 c.user_id,
                 u.nickname AS user_nickname,
+                u.profile_image_url AS user_profile_image_url,
                 c.content,
                 c.created_at,
                 c.updated_at
@@ -93,6 +95,7 @@ class CommentModel:
                 c.post_id,
                 c.user_id,
                 u.nickname AS user_nickname,
+                u.profile_image_url AS user_profile_image_url,
                 c.content,
                 c.created_at,
                 c.updated_at
@@ -136,6 +139,7 @@ class CommentModel:
                 c.post_id,
                 c.user_id,
                 u.nickname AS user_nickname,
+                u.profile_image_url AS user_profile_image_url,
                 c.content,
                 c.created_at,
                 c.updated_at

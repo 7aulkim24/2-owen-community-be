@@ -44,3 +44,6 @@ public/image/profile/*
 
 # Test
 test/
+
+# Log
+.logs/
