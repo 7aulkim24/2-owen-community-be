@@ -77,6 +77,7 @@ jobs:
         run: |
           set -euo pipefail
           ./2-owen-community-be/docker/scripts/build-and-push.sh
+          
       - name: Debug SSH connectivity
         run: |
           echo "Target host configured"
