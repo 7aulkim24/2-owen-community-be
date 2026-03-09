@@ -77,6 +77,11 @@ jobs:
         run: |
           set -euo pipefail
           ./2-owen-community-be/docker/scripts/build-and-push.sh
+      - name: Debug SSH connectivity
+        run: |
+          echo "Target host configured"
+          getent hosts ${{ secrets.EC2_HOST }} || nslookup ${{ secrets.EC2_HOST }} || true
+          nc -vz ${{ secrets.EC2_HOST }} 22
 
       - name: Upload deploy assets to EC2
         uses: appleboy/scp-action@v0.1.7
