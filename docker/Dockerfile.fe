@@ -1,0 +1,30 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /workspace/2-owen-community-fe
+
+RUN apk add --no-cache bash
+
+COPY 2-owen-community-fe/package*.json ./
+RUN npm ci
+
+COPY 2-owen-community-fe/ ./
+RUN npm run build:prod
+
+FROM nginx:1.27-alpine
+
+RUN apk add --no-cache gettext
+
+COPY docker/nginx.community.conf /etc/nginx/templates/nginx.community.conf.template
+COPY docker/entrypoint-fe.sh /entrypoint-fe.sh
+RUN chmod +x /entrypoint-fe.sh
+
+COPY --from=builder /workspace/2-owen-community-fe/dist/ /usr/share/nginx/html/
+
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+ENV BACKEND_HOST=backend
+ENV BACKEND_PORT=8000
+
+EXPOSE 80
+
+ENTRYPOINT ["/entrypoint-fe.sh"]

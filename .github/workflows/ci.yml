@@ -1,0 +1,41 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: test-secret-key
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_USER: test
+      DB_PASSWORD: test
+      DB_NAME: test
+      ALLOWED_ORIGINS: http://localhost,http://127.0.0.1
+      DEBUG: "false"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: Checkout backend repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+
+      - name: Run backend unit tests
+        run: |
+          set -euo pipefail
+          pytest tests/test_file_utils.py

@@ -1,0 +1,123 @@
+name: Backend CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Optional image tag override
+        required: false
+        type: string
+  repository_dispatch:
+    types:
+      - frontend-main-updated
+
+concurrency:
+  group: backend-cd-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      FE_REPO_OWNER: ${{ vars.FE_REPO_OWNER || github.repository_owner }}
+      FE_REPO_NAME: ${{ vars.FE_REPO_NAME || '2-owen-community-fe' }}
+      FE_REPO_REF: ${{ vars.FE_REPO_REF || 'main' }}
+    steps:
+      - name: Checkout backend repository
+        uses: actions/checkout@v4
+        with:
+          path: 2-owen-community-be
+
+      - name: Checkout frontend repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FE_REPO_OWNER }}/${{ env.FE_REPO_NAME }}
+          ref: ${{ env.FE_REPO_REF }}
+          token: ${{ secrets.FE_REPO_PAT }}
+          path: 2-owen-community-fe
+
+      - name: Resolve image tag
+        id: meta
+        env:
+          INPUT_TAG: ${{ github.event.inputs.image_tag || github.event.client_payload.image_tag || '' }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          else
+            SHORT_SHA="${GITHUB_SHA::7}"
+            TAG="r${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
+          fi
+          echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_TAG=$TAG"
+
+      - name: Prepare deploy assets
+        run: |
+          set -euo pipefail
+          chmod +x 2-owen-community-be/docker/scripts/*.sh
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push FE/BE/DB images
+        env:
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          PUSH_LATEST: "false"
+          TARGET_PLATFORM: "linux/amd64"
+          PROJECT_ROOT: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          ./2-owen-community-be/docker/scripts/build-and-push.sh
+
+      - name: Upload deploy assets to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: "2-owen-community-be/docker/*"
+          target: ${{ vars.EC2_DEPLOY_DIR }}
+          strip_components: 2
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+          EC2_DEPLOY_DIR: ${{ vars.EC2_DEPLOY_DIR }}
+          EC2_ENV_FILE_B64: ${{ secrets.EC2_ENV_FILE_B64 }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script_stop: true
+          envs: IMAGE_TAG,DOCKERHUB_NAMESPACE,EC2_DEPLOY_DIR,EC2_ENV_FILE_B64
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${EC2_DEPLOY_DIR}"
+            mkdir -p "$DEPLOY_DIR" "$DEPLOY_DIR/scripts"
+            cd "$DEPLOY_DIR"
+
+            if [ -n "${EC2_ENV_FILE_B64:-}" ]; then
+              printf '%s' "$EC2_ENV_FILE_B64" | base64 -d > .env
+            fi
+
+            if [ ! -f .env ]; then
+              echo "ERROR: .env not found at $DEPLOY_DIR/.env"
+              echo "Set EC2_ENV_FILE_B64 secret or create .env manually on EC2."
+              exit 1
+            fi
+
+            chmod +x ./scripts/*.sh
+            IMAGE_TAG="$IMAGE_TAG" DOCKERHUB_NAMESPACE="$DOCKERHUB_NAMESPACE" ./scripts/deploy-on-ec2.sh "$IMAGE_TAG"
