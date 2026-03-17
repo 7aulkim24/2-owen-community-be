@@ -43,7 +43,7 @@ public/image/post/*
 public/image/profile/*
 
 # Test
-test/
+tests/test_results.json
 
 # Log
 /logs/

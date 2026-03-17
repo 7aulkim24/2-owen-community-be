@@ -8,7 +8,6 @@ API 통합 테스트(런타임 체크):
 - 로그아웃(세션 삭제)
 """
 import json
-import sys
 from datetime import datetime
 
 import requests
