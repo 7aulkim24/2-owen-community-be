@@ -16,6 +16,14 @@ CREATE TABLE IF NOT EXISTS posts (
     user_id VARCHAR(26) NULL,
     title VARCHAR(300) NOT NULL,
     content TEXT NOT NULL,
+    post_type VARCHAR(20) NOT NULL DEFAULT 'manual'
+        COMMENT '게시글 유형: manual | auto_log | weekly_digest',
+    source_type VARCHAR(20) DEFAULT NULL
+        COMMENT '소스 유형: github | notion 등',
+    source_summary JSON DEFAULT NULL
+        COMMENT '소스별 요약 데이터 (커밋 수, PR 수 등)',
+    is_draft BOOLEAN NOT NULL DEFAULT FALSE
+        COMMENT '임시저장 여부',
     post_image_url VARCHAR(512) NULL,
     hits INT UNSIGNED NOT NULL DEFAULT 0,
     comment_count INT UNSIGNED NOT NULL DEFAULT 0,
@@ -28,6 +36,8 @@ CREATE TABLE IF NOT EXISTS posts (
 CREATE INDEX idx_author_created ON posts(user_id, created_at DESC);
 CREATE INDEX idx_created ON posts(created_at DESC);
 CREATE INDEX idx_posts_deleted_created ON posts(deleted_at, created_at DESC);
+CREATE INDEX idx_posts_post_type ON posts(post_type);
+CREATE INDEX idx_posts_is_draft  ON posts(is_draft);
 
 CREATE TABLE IF NOT EXISTS comments (
     comment_id VARCHAR(26) PRIMARY KEY,

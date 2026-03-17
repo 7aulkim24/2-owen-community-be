@@ -355,3 +355,44 @@ def test_image_upload_and_directory_creation(api_client):
     assert resp.status_code == 201
     assert "postFileUrl" in resp.json()["data"]
 
+
+# --- Post Type Field Tests ---
+
+
+def test_post_has_post_type_field(api_client):
+    """게시글 생성·목록·상세 응답에 postType/isDraft 필드가 포함되어야 함 (Phase 0 Unit 1)"""
+    api_client.post(
+        "/v1/auth/signup",
+        json={"email": "type@t.com", "password": "Password123!", "nickname": "typeuser"},
+    )
+    api_client.post("/v1/auth/login", json={"email": "type@t.com", "password": "Password123!"})
+
+    # 게시글 생성
+    resp = api_client.post("/v1/posts", json={"title": "Type Test Post", "content": "Content"})
+    assert resp.status_code == 201
+    data = resp.json()["data"]
+
+    # 생성 응답에 신규 필드 확인
+    assert "postType" in data, "postType 필드가 응답에 없습니다"
+    assert data["postType"] == "manual", "수동 작성 게시글의 postType은 'manual' 이어야 합니다"
+    assert "isDraft" in data, "isDraft 필드가 응답에 없습니다"
+    assert data["isDraft"] is False, "일반 게시글의 isDraft는 False 이어야 합니다"
+
+    post_id = data["postId"]
+
+    # 상세 조회 응답 확인
+    resp = api_client.get(f"/v1/posts/{post_id}")
+    assert resp.status_code == 200
+    detail = resp.json()["data"]
+    assert detail["postType"] == "manual"
+    assert detail["isDraft"] is False
+
+    # 목록 조회 응답 확인
+    resp = api_client.get("/v1/posts")
+    assert resp.status_code == 200
+    items = resp.json()["data"]["items"]
+    assert len(items) > 0
+    for item in items:
+        assert "postType" in item, "목록 아이템에 postType 필드가 없습니다"
+        assert "isDraft" in item, "목록 아이템에 isDraft 필드가 없습니다"
+

@@ -1,6 +1,21 @@
 from pydantic import Field, field_validator
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
+from enum import Enum
 from .base_schema import BaseSchema
+
+
+class PostType(str, Enum):
+    """게시글 유형"""
+    manual = "manual"               # 수동 작성 (기본값)
+    auto_log = "auto_log"           # 자동 기록 (GitHub 활동 기반)
+    weekly_digest = "weekly_digest" # 주간 회고
+
+
+class SourceType(str, Enum):
+    """소스 유형"""
+    github = "github"
+    notion = "notion"
+
 
 class PostCreateRequest(BaseSchema):
     title: str = Field(..., min_length=1, max_length=100)
@@ -44,6 +59,10 @@ class PostResponse(BaseSchema):
     postId: str
     title: str
     content: str
+    postType: PostType = PostType.manual
+    sourceType: Optional[SourceType] = None
+    sourceSummary: Optional[Dict[str, Any]] = None
+    isDraft: bool = False
     likeCount: int = 0
     commentCount: int = 0
     hits: int = 0

@@ -2,6 +2,7 @@ import json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -12,10 +13,30 @@ os.environ.setdefault("DB_USER", "root")
 os.environ.setdefault("DB_PASSWORD", "password")
 os.environ.setdefault("DB_NAME", "prooflog_test")
 
-# tests 실행 시 프로젝트 루트를 import path에 포함
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+def _find_app_root(start_dir: Path) -> Path:
+    """
+    tests 디렉토리 위치가 바뀌어도 동작하도록,
+    main.py 와 models/ 가 존재하는 '앱 루트'를 자동으로 찾는다.
+    """
+    candidates: list[Path] = []
+    for parent in [start_dir, *start_dir.parents]:
+        candidates.append(parent)
+        candidates.append(parent / "2-owen-community-be")
+
+    for cand in candidates:
+        if (cand / "main.py").is_file() and (cand / "models").is_dir():
+            return cand.resolve()
+
+    raise RuntimeError(
+        f"앱 루트를 찾을 수 없습니다. start_dir={start_dir}. "
+        "main.py 와 models/ 가 있는 디렉토리(예: 2-owen-community-be)를 확인해주세요."
+    )
+
+
+# tests 실행 시 앱 루트를 import path에 포함
+APP_ROOT = _find_app_root(Path(__file__).resolve().parent)
+if str(APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(APP_ROOT))
 
 # 각 테스트별 API 호출 로그를 저장할 전역 변수
 test_call_logs = {}
@@ -82,7 +103,8 @@ def api_client(request):
             log_call("DELETE", url, None, resp)
             return resp
 
-    return WrappedClient(client)
+    with TestClient(app) as client:
+        yield WrappedClient(client)
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
