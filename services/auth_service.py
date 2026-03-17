@@ -6,7 +6,7 @@ from utils.errors.error_codes import ErrorCode
 from schemas import SignupRequest, LoginRequest, UserResponse, FieldError
 
 
-class AuthController:
+class AuthService:
     """인증 관련 비즈니스 로직"""
 
     async def signup(self, req: SignupRequest) -> UserResponse:
@@ -49,4 +49,4 @@ class AuthController:
         return {"available": not await user_model.nicknameExists(nickname)}
 
 
-auth_controller = AuthController()
+auth_service = AuthService()

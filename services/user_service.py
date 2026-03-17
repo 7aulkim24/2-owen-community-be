@@ -8,7 +8,7 @@ from utils.errors.error_codes import ErrorCode
 from schemas import UserUpdateRequest, PasswordChangeRequest, UserResponse, ResourceError, FieldError
 
 
-class UserController:
+class UserService:
     """사용자 관련 비즈니스 로직"""
 
     async def getUserById(self, userId: str) -> UserResponse:
@@ -59,4 +59,4 @@ class UserController:
         return {}
 
 
-user_controller = UserController()
+user_service = UserService()

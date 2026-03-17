@@ -1,6 +1,6 @@
 # 커뮤니티 서비스 백엔드 (FastAPI)
 
-FastAPI 기반의 고성능 커뮤니티 백엔드 API입니다. 실무 수준의 운영 안정성과 성능 최적화를 목표로 **Router-Controller-Model-Schema** 아키텍처를 따르며, 최신 백엔드 엔지니어링 패턴이 적용되어 있습니다.
+FastAPI 기반의 고성능 커뮤니티 백엔드 API입니다. 실무 수준의 운영 안정성과 성능 최적화를 목표로 **Router-Service-Model-Schema** 아키텍처를 따르며, 최신 백엔드 엔지니어링 패턴이 적용되어 있습니다.
 
 ## 주요 기능
 - **인증 및 보안**: 회원가입, 세션 기반 로그인/로그아웃, **bcrypt 비밀번호 해싱**, 권한 기반 접근 제어(RBAC)
@@ -13,7 +13,7 @@ FastAPI 기반의 고성능 커뮤니티 백엔드 API입니다. 실무 수준�
 
 ## 기술적 특징 및 최적화
 - **아키텍처**: 
-  - **Router-Controller-Model-Schema** 계층 분리 아키텍처로 유지보수성 향상
+  - **Router-Service-Model-Schema** 계층 분리 아키텍처로 유지보수성 향상
   - Pydantic v2 도입으로 강력한 타입 힌트와 유효성 검사 수행
 - **성능 최적화**: 
   - **ULID 도입**: UUID를 대체하여 시간순 정렬 가능하고 인덱스 성능이 우수한 식별자 체계 구축
@@ -25,7 +25,7 @@ FastAPI 기반의 고성능 커뮤니티 백엔드 API입니다. 실무 수준�
 ## 프로젝트 구조
 - **`app/`**: 애플리케이션 핵심 로직
   - `routers/`: API 엔드포인트 정의 (v1)
-  - `controllers/`: 비즈니스 로직 및 DTO 변환
+  - `services/`: 비즈니스 로직 및 DTO 변환
   - `models/`: 데이터 접근 및 MySQL DB 연동
   - `schemas/`: Pydantic 기반 Request/Response DTO
 - **`utils/`**: 공통 유틸리티

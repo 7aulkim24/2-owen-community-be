@@ -6,7 +6,7 @@ from utils.errors.error_codes import ErrorCode
 from schemas import CommentCreateRequest, CommentUpdateRequest, CommentResponse, CommentAuthor, ResourceError
 
 
-class CommentController:
+class CommentService:
     """댓글 관련 비즈니스 로직"""
 
     async def _formatComment(self, comment: Dict) -> CommentResponse:
@@ -101,4 +101,4 @@ class CommentController:
         return comment
 
 
-comment_controller = CommentController()
+comment_service = CommentService()

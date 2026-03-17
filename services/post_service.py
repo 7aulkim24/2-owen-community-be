@@ -6,7 +6,7 @@ from utils.errors.error_codes import ErrorCode
 from schemas import PostCreateRequest, PostUpdateRequest, PostResponse, PostAuthor, PostFile, PaginatedData, PaginationMeta, ResourceError
 
 
-class PostController:
+class PostService:
     """게시글 관련 비즈니스 로직"""
 
     async def _formatPost(
@@ -176,4 +176,4 @@ class PostController:
         return {"likeCount": likeCount}
 
 
-post_controller = PostController()
+post_service = PostService()

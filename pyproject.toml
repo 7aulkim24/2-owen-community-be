@@ -34,4 +34,4 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["controllers*", "models*", "routers*", "utils*", "schemas*", "config.py", "main.py"]
+include = ["services*", "models*", "routers*", "utils*", "schemas*", "config.py", "main.py"]
