@@ -56,6 +56,14 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 async def general_exception_handler(request: Request, exc: Exception):
     logger.error("Unexpected error: %s | Path: %s | Method: %s", str(exc), request.url.path, request.method, exc_info=True)
+    
+    # 500 에러 발생 시, 처리되지 않은 request stream으로 인해 
+    # BaseHTTPMiddleware에서 EndOfStream 에러가 발생하여 CORS 헤더가 유실되는 현상을 방지
+    try:
+        await request.body()
+    except Exception:
+        pass
+
     return JSONResponse(
         status_code=500,
         content=StandardResponse.error(ErrorCode.INTERNAL_SERVER_ERROR, {}),

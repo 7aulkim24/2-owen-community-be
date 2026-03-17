@@ -60,9 +60,9 @@ class PostService:
             isLiked=is_liked,
         )
 
-    async def getAllPosts(self, limit: int = 10, offset: int = 0, current_user_id: Optional[str] = None) -> PaginatedData[List[PostResponse]]:
+    async def getAllPosts(self, limit: int = 10, offset: int = 0, current_user_id: Optional[str] = None, post_type: Optional[str] = None) -> PaginatedData[List[PostResponse]]:
         """게시글 목록 조회 로직 (페이징 메타데이터 포함)"""
-        result = await post_model.getPosts(limit=limit, offset=offset, current_user_id=current_user_id)
+        result = await post_model.getPosts(limit=limit, offset=offset, current_user_id=current_user_id, post_type=post_type)
         posts_data = result["posts"]
         total_count = result["totalCount"]
 

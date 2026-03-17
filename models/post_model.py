@@ -76,12 +76,21 @@ class PostModel:
             post["authorNickname"] = authorNickname
         return post
 
-    async def getPosts(self, limit: int = 10, offset: int = 0, current_user_id: Optional[str] = None) -> Dict[str, Union[List[Dict], int]]:
-        """게시글 목록 조회 (페이징 지원)"""
+    async def getPosts(self, limit: int = 10, offset: int = 0, current_user_id: Optional[str] = None, post_type: Optional[str] = None) -> Dict[str, Union[List[Dict], int]]:
+        """게시글 목록 조회 (페이징 지원, post_type 필터링 추가)"""
         current_user_id_str = self._normalizeId(current_user_id) if current_user_id else None
         
+        where_clause = "WHERE p.deleted_at IS NULL"
+        params_list = [current_user_id_str]
+        
+        if post_type:
+            where_clause += " AND p.post_type = %s"
+            params_list.append(post_type)
+        
+        params_list.extend([limit, offset])
+
         rows = await fetch_all(
-            """
+            f"""
             SELECT
                 p.post_id,
                 p.user_id AS author_id,
@@ -103,7 +112,7 @@ class PostModel:
             FROM posts p
             LEFT JOIN users u ON u.user_id = p.user_id
             LEFT JOIN post_likes pl ON pl.post_id = p.post_id
-            WHERE p.deleted_at IS NULL
+            {where_clause}
             GROUP BY
                 p.post_id,
                 p.user_id,
@@ -123,10 +132,16 @@ class PostModel:
             ORDER BY p.created_at DESC
             LIMIT %s OFFSET %s
             """,
-            (current_user_id_str, limit, offset),
+            tuple(params_list),
         )
 
-        total_row = await fetch_one("SELECT COUNT(*) AS total FROM posts WHERE deleted_at IS NULL")
+        total_where_clause = "WHERE deleted_at IS NULL"
+        total_params = []
+        if post_type:
+            total_where_clause += " AND post_type = %s"
+            total_params.append(post_type)
+
+        total_row = await fetch_one(f"SELECT COUNT(*) AS total FROM posts {total_where_clause}", tuple(total_params))
         totalCount = total_row["total"] if total_row else 0
 
         return {

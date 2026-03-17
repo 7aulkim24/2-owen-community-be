@@ -12,16 +12,22 @@ router = APIRouter(prefix="/v1/posts", tags=["게시글"])
 
 @router.get("", response_model=PaginatedResponseSchema[List[PostResponse]], status_code=status.HTTP_200_OK)
 async def get_posts(
+    post_type: Optional[str] = Query(None, description="게시글 분류 필터 (예: manual, auto_log)"),
     offset: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     user: Optional[Dict] = Depends(get_optional_user)
 ):
     """
     게시글 목록 조회 (페이징 메타데이터 포함)
-    - 모든 게시글을 최신순으로 반환
+    - 지정 필터 혹은 모든 게시글을 최신순으로 반환
     - 인증 불필요
     """
-    data = await post_service.getAllPosts(limit=limit, offset=offset, current_user_id=(user or {}).get("userId"))
+    data = await post_service.getAllPosts(
+        limit=limit, 
+        offset=offset, 
+        current_user_id=(user or {}).get("userId"),
+        post_type=post_type
+    )
     return StandardResponse.success(SuccessCode.SUCCESS, data)
 
 
