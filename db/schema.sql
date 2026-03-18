@@ -91,3 +91,79 @@ CREATE TABLE IF NOT EXISTS post_images (
 
 CREATE INDEX idx_post_images_post_order ON post_images(post_id, sort_order ASC);
 CREATE INDEX idx_post_images_post ON post_images(post_id);
+
+-- Phase 1: GitHub OAuth 연동 계정
+CREATE TABLE IF NOT EXISTS connected_accounts (
+    account_id VARCHAR(26) PRIMARY KEY,
+    user_id VARCHAR(26) NOT NULL,
+    provider VARCHAR(20) NOT NULL,
+    provider_user_id VARCHAR(100) NOT NULL,
+    provider_username VARCHAR(100),
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    token_expires_at DATETIME,
+    scopes VARCHAR(500),
+    connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    disconnected_at DATETIME,
+    CONSTRAINT fk_connected_accounts_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    UNIQUE KEY uq_user_provider (user_id, provider)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Phase 1: 활동 이벤트 수집
+CREATE TABLE IF NOT EXISTS activity_events (
+    event_id VARCHAR(26) PRIMARY KEY,
+    user_id VARCHAR(26) NOT NULL,
+    provider VARCHAR(20) NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    external_id VARCHAR(200) NOT NULL,
+    title VARCHAR(500),
+    description TEXT,
+    event_url VARCHAR(500),
+    repo_name VARCHAR(200),
+    event_metadata JSON,
+    event_occurred_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_activity_events_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    UNIQUE KEY uq_provider_external (provider, external_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_activity_events_user_date ON activity_events(user_id, event_occurred_at);
+
+-- Phase 1: 수집 작업 관리
+CREATE TABLE IF NOT EXISTS sync_jobs (
+    job_id VARCHAR(26) PRIMARY KEY,
+    user_id VARCHAR(26) NOT NULL,
+    provider VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    started_at DATETIME,
+    completed_at DATETIME,
+    last_synced_at DATETIME,
+    retry_count INT NOT NULL DEFAULT 0,
+    max_retries INT NOT NULL DEFAULT 3,
+    error_message TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sync_jobs_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_sync_jobs_status ON sync_jobs(status);
+
+-- Phase 1: 자동 요약 초안
+CREATE TABLE IF NOT EXISTS activity_summaries (
+    summary_id VARCHAR(26) PRIMARY KEY,
+    user_id VARCHAR(26) NOT NULL,
+    summary_date DATE NOT NULL,
+    summary_type VARCHAR(20) NOT NULL DEFAULT 'daily',
+    event_count INT NOT NULL DEFAULT 0,
+    providers JSON,
+    generated_title VARCHAR(200),
+    generated_content TEXT,
+    post_id VARCHAR(26),
+    status VARCHAR(20) NOT NULL DEFAULT 'generated',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_activity_summaries_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_activity_summaries_post FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE SET NULL,
+    UNIQUE KEY uq_user_date_type (user_id, summary_date, summary_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

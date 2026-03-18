@@ -41,7 +41,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="AWS AI School 2기 Backend",
+    title="Prooflog Backend",
     description="FastAPI 기반 커뮤니티 백엔드 API",
     version="1.0.0"
 )
