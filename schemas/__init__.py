@@ -3,6 +3,7 @@ from .auth_schema import SignupRequest, LoginRequest, EmailAvailabilityResponse,
 from .user_schema import UserUpdateRequest, PasswordChangeRequest, UserProfileImageResponse, UserResponse
 from .post_schema import PostCreateRequest, PostUpdateRequest, PostResponse, PostAuthor, PostFile, PostImage, PostImageUploadResponse, PostImagesUploadResponse
 from .comment_schema import CommentCreateRequest, CommentUpdateRequest, CommentResponse, CommentAuthor
+from .integration_schema import ConnectedAccountResponse, ProviderEnum
 from .error_schema import FieldError, ValidationErrorDetail, ResourceError
 
 __all__ = [
@@ -16,6 +17,8 @@ __all__ = [
     "PostCreateRequest", "PostUpdateRequest", "PostResponse", "PostAuthor", "PostFile", "PostImage", "PostImageUploadResponse", "PostImagesUploadResponse",
     # Comment
     "CommentCreateRequest", "CommentUpdateRequest", "CommentResponse", "CommentAuthor",
+    # Integration
+    "ConnectedAccountResponse", "ProviderEnum",
     # Error
     "FieldError", "ValidationErrorDetail", "ResourceError"
 ]

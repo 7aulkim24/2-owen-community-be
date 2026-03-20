@@ -52,4 +52,10 @@ export DB_USER="${DB_USER:-root}"
 export DB_PASSWORD="${DB_PASSWORD:-password}"
 export SECRET_KEY="${SECRET_KEY:-test-secret-key}"
 
+# GitHub OAuth (테스트용 기본값)
+export GITHUB_CLIENT_ID="${GITHUB_CLIENT_ID:-test-client-id}"
+export GITHUB_CLIENT_SECRET="${GITHUB_CLIENT_SECRET:-test-secret}"
+export GITHUB_CALLBACK_URL="${GITHUB_CALLBACK_URL:-http://localhost:8000/v1/integrations/github/callback}"
+export TOKEN_ENCRYPT_KEY="${TOKEN_ENCRYPT_KEY:-dGVzdC1rZXktMzItYnl0ZXMtbG9uZy1lbm91Z2g=}"
+
 python -m pytest "$@"

@@ -84,11 +84,12 @@ async def health_check():
     return StandardResponse.success(SuccessCode.SUCCESS, {"status": "healthy"})
 
 # 라우터 등록
-from routers import post_router, comment_router, auth_router, user_router
+from routers import post_router, comment_router, auth_router, user_router, integration_router
 app.include_router(post_router)
 app.include_router(comment_router)
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(integration_router)
 
 # 개발 환경(Debug Mode)에서만 테스트 라우터 포함
 if settings.debug:

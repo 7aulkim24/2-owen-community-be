@@ -12,6 +12,13 @@ os.environ.setdefault("DB_HOST", "localhost")
 os.environ.setdefault("DB_USER", "root")
 os.environ.setdefault("DB_PASSWORD", "password")
 os.environ.setdefault("DB_NAME", "prooflog_test")
+# GitHub OAuth / 토큰 암호화 — 테스트·임포트 시 Settings 검증 통과용 (실제 호출 없음)
+os.environ.setdefault("GITHUB_CLIENT_ID", "test-github-client-id")
+os.environ.setdefault("GITHUB_CLIENT_SECRET", "test-github-client-secret")
+os.environ.setdefault(
+    "TOKEN_ENCRYPT_KEY",
+    "sneykqErN0KOArVsMTlsCO8tBxOkfuFOZ2qvNWWwZP0=",
+)
 
 def _find_app_root(start_dir: Path) -> Path:
     """
