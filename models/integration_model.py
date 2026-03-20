@@ -61,6 +61,27 @@ class IntegrationModel:
         )
         return self._row_to_dict(row)
 
+    async def get_encrypted_token_and_username_for_sync(
+        self, user_id: str, provider: str
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """
+        동기화용: 활성 연동의 암호화된 access_token + provider_username 조회.
+        """
+        row = await fetch_one(
+            """
+            SELECT access_token, provider_username
+            FROM connected_accounts
+            WHERE user_id = %s AND provider = %s AND disconnected_at IS NULL
+            """,
+            (user_id, provider),
+        )
+        if not row or not row.get("access_token"):
+            return None
+        return {
+            "encrypted_token": row["access_token"],
+            "provider_username": row.get("provider_username"),
+        }
+
     async def get_encrypted_token_for_revoke(self, account_id: str, user_id: str) -> Optional[str]:
         """
         연동 해제 시 GitHub grant 철회용으로 암호화된 access_token 조회
@@ -91,7 +112,7 @@ class IntegrationModel:
         UNIQUE KEY (user_id, provider) 충돌 시 기존 레코드를 갱신합니다.
         - 신규: account_id를 새로 발급하여 삽입
         - 재연동: 기존 account_id를 유지하고 토큰·상태만 업데이트
-        VALUES() 함수 방식 사용 (MySQL 5.7+ 호환, AS new_row 문법 불필요)
+        ON DUPLICATE 시 INSERT 행 별칭(new) 참조 — MySQL 8.0.19+ (VALUES() 폐기 경고 방지)
         """
         account_id = generate_id()
         await execute(
@@ -99,13 +120,13 @@ class IntegrationModel:
             INSERT INTO connected_accounts
                 (account_id, user_id, provider, provider_user_id, provider_username,
                  access_token, refresh_token, token_expires_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) AS new
             ON DUPLICATE KEY UPDATE
-                provider_user_id  = VALUES(provider_user_id),
-                provider_username = VALUES(provider_username),
-                access_token      = VALUES(access_token),
-                refresh_token     = VALUES(refresh_token),
-                token_expires_at  = VALUES(token_expires_at),
+                provider_user_id  = new.provider_user_id,
+                provider_username = new.provider_username,
+                access_token      = new.access_token,
+                refresh_token     = new.refresh_token,
+                token_expires_at  = new.token_expires_at,
                 disconnected_at   = NULL,
                 updated_at        = NOW()
             """,

@@ -6,10 +6,16 @@ GitHub API 어댑터
 - OAuth grant 철회 (연동 해제 시 GitHub에서 앱 인증 삭제)
 """
 
+import asyncio
 import base64
+import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from time import time as unix_now
+from typing import Any, Dict, List, Optional, Tuple
+
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 async def get_access_token(
@@ -86,6 +92,48 @@ async def get_user_events(
     GET https://api.github.com/users/{username}/events
     since: ISO8601 형식의 날짜 문자열 (이 시점 이후 이벤트만 반환)
     """
+    events, _ = await get_user_events_with_headers(username, access_token, since)
+    return events
+
+
+async def respect_github_rate_limit(headers: httpx.Headers) -> None:
+    """
+    X-RateLimit-Remaining이 0이면 X-RateLimit-Reset까지 대기.
+    100 이하이면 경고 로그만 남김.
+    """
+    rem_raw = headers.get("x-ratelimit-remaining")
+    reset_raw = headers.get("x-ratelimit-reset")
+    if rem_raw is None:
+        return
+    try:
+        remaining = int(rem_raw)
+    except ValueError:
+        return
+    if 0 < remaining <= 100:
+        logger.warning("GitHub rate limit remaining: %s", remaining)
+    if remaining > 0:
+        return
+    if not reset_raw:
+        await asyncio.sleep(60)
+        return
+    try:
+        reset_ts = int(reset_raw)
+    except ValueError:
+        await asyncio.sleep(60)
+        return
+    sleep_s = max(0, reset_ts - int(unix_now())) + 1
+    logger.warning("GitHub rate limit exhausted, sleeping %s seconds until reset", sleep_s)
+    await asyncio.sleep(sleep_s)
+
+
+async def get_user_events_with_headers(
+    username: str,
+    access_token: str,
+    since: Optional[str] = None,
+) -> Tuple[List[Dict[str, Any]], httpx.Headers]:
+    """
+    GET /users/{username}/events — 본문과 응답 헤더(레이트 리밋) 반환.
+    """
     url = f"https://api.github.com/users/{username}/events"
     params = {}
     if since:
@@ -102,7 +150,10 @@ async def get_user_events(
             },
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        if not isinstance(data, list):
+            return [], response.headers
+        return data, response.headers
 
 
 async def revoke_grant(client_id: str, client_secret: str, access_token: str) -> None:
@@ -114,7 +165,9 @@ async def revoke_grant(client_id: str, client_secret: str, access_token: str) ->
     """
     basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     async with httpx.AsyncClient() as client:
-        response = await client.delete(
+        # httpx.AsyncClient.delete()는 json= 인자를 지원하지 않음 → request(DELETE, json=...) 사용
+        response = await client.request(
+            "DELETE",
             f"https://api.github.com/applications/{client_id}/grant",
             json={"access_token": access_token},
             headers={

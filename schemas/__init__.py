@@ -4,6 +4,12 @@ from .user_schema import UserUpdateRequest, PasswordChangeRequest, UserProfileIm
 from .post_schema import PostCreateRequest, PostUpdateRequest, PostResponse, PostAuthor, PostFile, PostImage, PostImageUploadResponse, PostImagesUploadResponse
 from .comment_schema import CommentCreateRequest, CommentUpdateRequest, CommentResponse, CommentAuthor
 from .integration_schema import ConnectedAccountResponse, ProviderEnum
+from .activity_schema import (
+    SyncJobStatus,
+    ActivityEventType,
+    ActivityEventRow,
+    SyncJobRow,
+)
 from .error_schema import FieldError, ValidationErrorDetail, ResourceError
 
 __all__ = [
@@ -19,6 +25,8 @@ __all__ = [
     "CommentCreateRequest", "CommentUpdateRequest", "CommentResponse", "CommentAuthor",
     # Integration
     "ConnectedAccountResponse", "ProviderEnum",
+    # Activity / sync
+    "SyncJobStatus", "ActivityEventType", "ActivityEventRow", "SyncJobRow",
     # Error
     "FieldError", "ValidationErrorDetail", "ResourceError"
 ]

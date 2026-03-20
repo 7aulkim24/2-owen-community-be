@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 from config import settings
 from models.integration_model import integration_model
+from models.sync_model import sync_model
 from utils.integrations import github
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
@@ -38,12 +39,12 @@ class IntegrationService:
         nonce = secrets.token_urlsafe(12)
         ts = str(int(time.time()))
         payload = f"{user_id}|{ts}|{nonce}"
-        sig = hmac.new(
+        sig_hex = hmac.new(
             settings.secret_key.encode(),
             payload.encode(),
             hashlib.sha256,
-        ).hexdigest().encode()
-        raw = base64.urlsafe_b64encode(f"{payload}|{sig.decode()}".encode()).decode()
+        ).hexdigest()
+        raw = base64.urlsafe_b64encode(f"{payload}|{sig_hex}".encode()).decode()
         return raw.rstrip("=")
 
     def decode_oauth_state(self, state: Optional[str]) -> Optional[str]:
@@ -145,7 +146,26 @@ class IntegrationService:
             refresh_token_encrypted=refresh_token_encrypted,
             token_expires_at=token_expires_at,
         )
+        await sync_model.ensure_pending_job_after_connect(user_id, "github")
         return result
+
+    async def get_decrypted_token_and_username_for_sync(
+        self, user_id: str, provider: str
+    ) -> Optional[tuple[str, Optional[str]]]:
+        """
+        GitHub 이벤트 수집용: 평문 access_token과 provider_username(login) 반환.
+        username이 비어 있으면 호출 측에서 get_user_info로 보완 가능.
+        """
+        row = await integration_model.get_encrypted_token_and_username_for_sync(user_id, provider)
+        if not row:
+            return None
+        enc = row.get("encrypted_token")
+        if not enc:
+            return None
+        fernet = self._get_fernet()
+        access_token = fernet.decrypt(enc.encode()).decode()
+        uname = row.get("provider_username")
+        return access_token, uname
 
     async def get_user_integrations(self, user_id: str) -> List[ConnectedAccountResponse]:
         """연동 계정 목록 조회"""

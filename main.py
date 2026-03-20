@@ -1,5 +1,8 @@
+import asyncio
 import logging
 import os
+from typing import Optional
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +16,7 @@ from utils.middleware.request_id_middleware import RequestIDMiddleware, request_
 from utils.middleware.access_log_middleware import AccessLogMiddleware
 from utils.errors.exception_handlers import register_exception_handlers
 from utils.database.db import init_pool, close_pool
+from services.sync_service import run_scheduler
 
 # 로깅 필터: 로그에 request_id 추가
 class RequestIDFilter(logging.Filter):
@@ -40,6 +44,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+_scheduler_task: Optional[asyncio.Task] = None
+
 app = FastAPI(
     title="Prooflog Backend",
     description="FastAPI 기반 커뮤니티 백엔드 API",
@@ -49,10 +55,30 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     await init_pool()
+    global _scheduler_task
+    # pytest / TestClient 등에서 백그라운드 루프 방지: DISABLE_SYNC_SCHEDULER=1
+    if os.environ.get("DISABLE_SYNC_SCHEDULER", "").strip().lower() in ("1", "true", "yes"):
+        logger.info("Background sync scheduler disabled (DISABLE_SYNC_SCHEDULER)")
+    else:
+        _scheduler_task = asyncio.create_task(run_scheduler())
+        logger.info("Background sync scheduler task created")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    global _scheduler_task
+    if _scheduler_task is not None:
+        t = _scheduler_task
+        _scheduler_task = None
+        if not t.done():
+            t.cancel()
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("Background sync scheduler task ended with an error")
+        logger.info("Background sync scheduler task shutdown complete")
     await close_pool()
 
 # 정적 파일 서빙

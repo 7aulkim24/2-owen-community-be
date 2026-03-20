@@ -3,7 +3,17 @@ from models.post_model import post_model
 from models.comment_model import comment_model
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
-from schemas import PostCreateRequest, PostUpdateRequest, PostResponse, PostAuthor, PostFile, PaginatedData, PaginationMeta, ResourceError
+from schemas import (
+    PostCreateRequest,
+    PostUpdateRequest,
+    PostResponse,
+    PostAuthor,
+    PostFile,
+    PaginatedData,
+    PaginationMeta,
+    ResourceError,
+)
+from schemas.post_schema import PostType, SourceType
 
 
 class PostService:
@@ -46,10 +56,28 @@ class PostService:
             for img in post_images
         ] if post_images else None
 
+        raw_pt = post.get("postType", "manual")
+        try:
+            post_type = PostType(raw_pt) if isinstance(raw_pt, str) else raw_pt
+        except ValueError:
+            post_type = PostType.manual
+
+        source_type: Optional[SourceType] = None
+        raw_st = post.get("sourceType")
+        if raw_st:
+            try:
+                source_type = SourceType(raw_st) if isinstance(raw_st, str) else raw_st
+            except ValueError:
+                source_type = None
+
         return PostResponse(
             postId=post["postId"],
             title=post["title"],
             content=post["content"],
+            postType=post_type,
+            sourceType=source_type,
+            sourceSummary=post.get("sourceSummary"),
+            isDraft=bool(post.get("isDraft", False)),
             likeCount=post.get("likeCount", 0), # 캐시된 값 사용
             commentCount=post.get("commentCount", 0), # 캐시된 값 사용
             hits=post["hits"],

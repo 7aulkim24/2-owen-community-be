@@ -19,6 +19,8 @@ os.environ.setdefault(
     "TOKEN_ENCRYPT_KEY",
     "sneykqErN0KOArVsMTlsCO8tBxOkfuFOZ2qvNWWwZP0=",
 )
+# TestClient 기동 시 무한 스케줄 루프 방지 (main.py startup)
+os.environ.setdefault("DISABLE_SYNC_SCHEDULER", "1")
 
 def _find_app_root(start_dir: Path) -> Path:
     """
