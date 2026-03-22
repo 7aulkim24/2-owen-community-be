@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 
 from models.sync_model import sync_model
 from services.github_sync_service import github_sync_service
+from services.summary_service import summary_service
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,15 @@ async def dispatch_sync_job(row: Dict[str, Any]) -> None:
         )
         await sync_model.mark_job_completed(job_id)
         logger.info("Sync job completed job_id=%s user_id=%s provider=%s", job_id, user_id, provider)
+        try:
+            summary_date = datetime.now(timezone.utc).date()
+            await summary_service.generate_daily_summary(user_id, summary_date)
+        except Exception:
+            logger.exception(
+                "Daily summary generation failed (sync already completed) job_id=%s user_id=%s",
+                job_id,
+                user_id,
+            )
     except Exception as e:
         logger.exception("Sync job failed job_id=%s", job_id)
         await sync_model.increment_retry(job_id, str(e))
