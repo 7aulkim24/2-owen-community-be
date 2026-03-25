@@ -8,8 +8,10 @@ import json
 from datetime import date
 from typing import Any, Dict, Optional
 
+from typing import List
+
 from utils.common.id_utils import generate_id
-from utils.database.db import execute, fetch_one
+from utils.database.db import execute, fetch_one, fetch_all
 
 
 class SummaryModel:
@@ -99,6 +101,65 @@ class SummaryModel:
             ),
         )
         return sid
+
+    async def get_summary_by_id(self, summary_id: str) -> Optional[Dict[str, Any]]:
+        row = await fetch_one(
+            """
+            SELECT summary_id, user_id, summary_date, summary_type, event_count,
+                   providers, generated_title, generated_content, post_id, status,
+                   created_at, updated_at
+            FROM activity_summaries
+            WHERE summary_id = %s
+            """,
+            (summary_id,),
+        )
+        return row
+
+    async def get_summary_by_id_for_user(
+        self, summary_id: str, user_id: str
+    ) -> Optional[Dict[str, Any]]:
+        row = await fetch_one(
+            """
+            SELECT summary_id, user_id, summary_date, summary_type, event_count,
+                   providers, generated_title, generated_content, post_id, status,
+                   created_at, updated_at
+            FROM activity_summaries
+            WHERE summary_id = %s AND user_id = %s
+            """,
+            (summary_id, user_id),
+        )
+        return row
+
+    async def list_summaries_for_user(
+        self,
+        user_id: str,
+        status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        if status:
+            rows = await fetch_all(
+                """
+                SELECT summary_id, user_id, summary_date, summary_type, event_count,
+                       providers, generated_title, generated_content, post_id, status,
+                       created_at, updated_at
+                FROM activity_summaries
+                WHERE user_id = %s AND status = %s
+                ORDER BY summary_date DESC, created_at DESC
+                """,
+                (user_id, status),
+            )
+        else:
+            rows = await fetch_all(
+                """
+                SELECT summary_id, user_id, summary_date, summary_type, event_count,
+                       providers, generated_title, generated_content, post_id, status,
+                       created_at, updated_at
+                FROM activity_summaries
+                WHERE user_id = %s
+                ORDER BY summary_date DESC, created_at DESC
+                """,
+                (user_id,),
+            )
+        return list(rows) if rows else []
 
 
 summary_model = SummaryModel()

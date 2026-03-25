@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     # CORS 설정 (쉼표로 구분된 URL 목록)
     allowed_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
 
+    # 로컬 개발: FE가 Live Server 등으로 임의 포트를 쓸 때 .env 누락을 보완
+    # 프로덕션에서 완전 차단하려면 환경 변수로 빈 문자열("")을 주면 비활성화됨
+    cors_allow_origin_regex: Optional[str] = (
+        r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+    )
+
     # OAuth 콜백 후 브라우저 리다이렉트용 프론트 베이스 URL
     # 미설정 시 allowed_origins 중 localhost/127.0.0.1 을 먼저 쓰고, 없으면 목록 첫 항목
     frontend_url: Optional[str] = None

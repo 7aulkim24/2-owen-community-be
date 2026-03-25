@@ -1,4 +1,6 @@
-from typing import Dict, List, Optional, Union
+import json
+from typing import Any, Dict, List, Optional, Union
+
 from utils.common.id_utils import generate_id
 from utils.database.db import fetch_one, fetch_all, execute
 
@@ -15,6 +17,25 @@ class PostModel:
             return None
         return value.isoformat()
 
+    def _parse_source_summary(self, val: Any) -> Optional[Dict[str, Any]]:
+        """MySQL JSON 컬럼이 aiomysql에서 str/bytes로 올 수 있음 — PostResponse는 dict 기대."""
+        if val is None:
+            return None
+        if isinstance(val, dict):
+            return val
+        if isinstance(val, (bytes, bytearray)):
+            val = val.decode("utf-8")
+        if isinstance(val, str):
+            s = val.strip()
+            if not s:
+                return None
+            try:
+                out = json.loads(s)
+                return out if isinstance(out, dict) else None
+            except json.JSONDecodeError:
+                return None
+        return None
+
     def _row_to_post(self, row: Optional[Dict]) -> Optional[Dict]:
         if not row:
             return None
@@ -24,7 +45,7 @@ class PostModel:
             "content": row["content"],
             "postType": row.get("post_type", "manual"),
             "sourceType": row.get("source_type"),
-            "sourceSummary": row.get("source_summary"),
+            "sourceSummary": self._parse_source_summary(row.get("source_summary")),
             "isDraft": bool(row.get("is_draft", False)),
             "authorId": row["author_id"],
             "authorNickname": row.get("author_nickname"),
@@ -76,17 +97,53 @@ class PostModel:
             post["authorNickname"] = authorNickname
         return post
 
-    async def getPosts(self, limit: int = 10, offset: int = 0, current_user_id: Optional[str] = None, post_type: Optional[str] = None) -> Dict[str, Union[List[Dict], int]]:
-        """게시글 목록 조회 (페이징 지원, post_type 필터링 추가)"""
+    async def getPosts(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        current_user_id: Optional[str] = None,
+        post_type: Optional[str] = None,
+        sort_by: str = "published",
+    ) -> Dict[str, Union[List[Dict], int]]:
+        """게시글 목록 조회 (페이징 지원, post_type 필터링 추가)
+
+        sort_by:
+          - published: 게시(생성) 시각 기준 최신순 (기본)
+          - activity: 자동 로그는 활동 근거일(summary_date JSON 또는 제목의 YYYY-MM-DD) 기준, 그 외는 게시일
+        """
+        if sort_by not in ("published", "activity"):
+            sort_by = "published"
+
         current_user_id_str = self._normalizeId(current_user_id) if current_user_id else None
-        
+
+        if sort_by == "activity":
+            # aiomysql가 query % params 전에 %를 해석하므로 MySQL 날짜 포맷은 %% 로 이스케이프
+            order_clause = """
+            ORDER BY
+                COALESCE(
+                    STR_TO_DATE(
+                        NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(p.source_summary, '$.summary_date'))), ''),
+                        '%%Y-%%m-%%d'
+                    ),
+                    CASE
+                        WHEN p.post_type = 'auto_log' AND p.title REGEXP '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                            THEN STR_TO_DATE(SUBSTRING_INDEX(p.title, ' · ', 1), '%%Y-%%m-%%d')
+                        ELSE NULL
+                    END,
+                    DATE(p.created_at)
+                ) DESC,
+                p.created_at DESC
+            """
+        else:
+            order_clause = "ORDER BY p.created_at DESC"
+
         where_clause = "WHERE p.deleted_at IS NULL"
         params_list = [current_user_id_str]
-        
+
         if post_type:
             where_clause += " AND p.post_type = %s"
             params_list.append(post_type)
-        
+
         params_list.extend([limit, offset])
 
         rows = await fetch_all(
@@ -129,7 +186,7 @@ class PostModel:
                 p.updated_at,
                 p.hits,
                 p.comment_count
-            ORDER BY p.created_at DESC
+            {order_clause}
             LIMIT %s OFFSET %s
             """,
             tuple(params_list),

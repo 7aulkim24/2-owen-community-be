@@ -90,16 +90,24 @@ if not os.path.exists(UPLOAD_DIR):
 
 app.mount("/public", StaticFiles(directory=UPLOAD_DIR), name="public")
 
-# 미들웨어 등록 (LIFO 순서로 실행됨: RequestID -> AccessLog -> CORS -> Session -> Auth -> App)
+# 미들웨어 등록 (Starlette: 나중에 add 한 것이 요청 시 먼저 실행됨)
+# CORSMiddleware는 반드시 마지막에 등록해 응답이 나갈 때 가장 마지막에 실행되게 한다.
+# 그래야 500·예외 응답에도 Access-Control-Allow-Origin이 붙고, 브라우저가 CORS 오류로만 보이는 현상을 줄인다.
 app.add_middleware(AuthMiddleware)
 app.add_middleware(DBSessionMiddleware)
-app.add_middleware(CORSMiddleware,
-                   allow_origins=settings.get_allowed_origins_list(),
-                   allow_credentials=True,
-                   allow_methods=["*"],
-                   allow_headers=["*"])
 app.add_middleware(AccessLogMiddleware)
 app.add_middleware(RequestIDMiddleware)
+_raw_regex = settings.cors_allow_origin_regex
+_cors_regex = _raw_regex.strip() if isinstance(_raw_regex, str) and _raw_regex.strip() else None
+_cors_kwargs = {
+    "allow_origins": settings.get_allowed_origins_list(),
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if _cors_regex:
+    _cors_kwargs["allow_origin_regex"] = _cors_regex
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 # 예외 핸들러 등록
 register_exception_handlers(app)
@@ -110,12 +118,20 @@ async def health_check():
     return StandardResponse.success(SuccessCode.SUCCESS, {"status": "healthy"})
 
 # 라우터 등록
-from routers import post_router, comment_router, auth_router, user_router, integration_router
+from routers import (
+    post_router,
+    comment_router,
+    auth_router,
+    user_router,
+    integration_router,
+    activity_router,
+)
 app.include_router(post_router)
 app.include_router(comment_router)
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(integration_router)
+app.include_router(activity_router)
 
 # 개발 환경(Debug Mode)에서만 테스트 라우터 포함
 if settings.debug:

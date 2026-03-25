@@ -15,7 +15,8 @@ class ActivityModel:
 
     async def insert_events_ignore(self, rows: List[Dict[str, Any]]) -> int:
         """
-        INSERT IGNORE — uq_provider_external (provider, external_id) 중복 시 무시.
+        (provider, external_id) 중복이면 삽입 생략.
+        INSERT IGNORE 대신 NOT EXISTS를 쓰면 MySQL이 중복마다 Warning(1062)을 내지 않음.
         rows: snake_case 키 — event_id, user_id, provider, event_type, external_id,
               title, description, event_url, repo_name, event_metadata(dict|None), event_occurred_at(datetime)
         """
@@ -26,11 +27,17 @@ class ActivityModel:
                 meta = json.dumps(meta, ensure_ascii=False)
             n = await execute(
                 """
-                INSERT IGNORE INTO activity_events (
+                INSERT INTO activity_events (
                     event_id, user_id, provider, event_type, external_id,
                     title, description, event_url, repo_name, event_metadata,
                     event_occurred_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                )
+                SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                FROM DUAL
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM activity_events ae
+                    WHERE ae.provider = %s AND ae.external_id = %s
+                )
                 """,
                 (
                     r["event_id"],
@@ -44,6 +51,8 @@ class ActivityModel:
                     r.get("repo_name"),
                     meta,
                     r["event_occurred_at"],
+                    r["provider"],
+                    r["external_id"],
                 ),
             )
             inserted += int(n)

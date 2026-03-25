@@ -1,7 +1,9 @@
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Awaitable, Callable, Dict, Iterable, Optional, TypeVar
 import logging
 import aiomysql
 from config import settings
+
+T = TypeVar("T")
 
 
 _pool: Optional[aiomysql.Pool] = None
@@ -88,3 +90,24 @@ async def execute(query: str, params: Optional[Iterable[Any]] = None) -> int:
                 await conn.rollback()
                 _logger.error(f"DB Error: {str(e)} | Query: {query} | Params: {params}")
                 raise e
+
+
+async def run_in_transaction(fn: Callable[[aiomysql.Cursor], Awaitable[T]]) -> T:
+    """
+    단일 커넥션에서 여러 쿼리를 실행한 뒤 한 번에 커밋합니다.
+    예외 시 롤백. (초안 승인: summary 상태 + posts INSERT 원자성)
+    """
+    await _ensure_pool()
+    if _pool is None:
+        raise RuntimeError("DB pool is not initialized")
+
+    async with _pool.acquire() as conn:
+        try:
+            async with conn.cursor() as cursor:
+                result = await fn(cursor)
+            await conn.commit()
+            return result
+        except Exception as e:
+            await conn.rollback()
+            _logger.error(f"Transaction rolled back: {str(e)}")
+            raise e

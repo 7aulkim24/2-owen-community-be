@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 from config import settings
 from models.integration_model import integration_model
-from models.sync_model import sync_model
 from utils.integrations import github
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
@@ -111,6 +110,7 @@ class IntegrationService:
     async def handle_callback(self, code: str, user_id: str) -> Dict:
         """
         OAuth 콜백 처리: 토큰 교환 → 사용자 정보 조회 → 암호화 저장
+        → GitHub 동기화 job 생성 후 즉시 1회 실행(스케줄러 15분 대기 없이 수집 시작).
         """
         token_data = await github.get_access_token(
             code=code,
@@ -146,7 +146,10 @@ class IntegrationService:
             refresh_token_encrypted=refresh_token_encrypted,
             token_expires_at=token_expires_at,
         )
-        await sync_model.ensure_pending_job_after_connect(user_id, "github")
+        # sync_service는 github_sync_service와 순환 참조 → 콜백 시점에만 지연 import
+        from services.sync_service import trigger_manual_sync
+
+        await trigger_manual_sync(user_id, "github")
         return result
 
     async def get_decrypted_token_and_username_for_sync(

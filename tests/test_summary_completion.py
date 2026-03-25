@@ -206,7 +206,7 @@ def test_unit4_checklist_sync_stays_completed_on_summary_error():
             patch(
                 "services.sync_service.github_sync_service.sync_github_events_for_user",
                 new_callable=AsyncMock,
-                return_value=1,
+                return_value=(1, frozenset({date(2030, 1, 15)})),
             ),
             patch(
                 "services.sync_service.summary_service.generate_daily_summary",

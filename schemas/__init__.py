@@ -9,6 +9,12 @@ from .activity_schema import (
     ActivityEventType,
     ActivityEventRow,
     SyncJobRow,
+    ActivitySummaryListItem,
+    ActivityEventPublic,
+    ActivitySummaryDetailResponse,
+    ActivitySummaryPatchRequest,
+    ActivitySummaryApproveRequest,
+    ActivitySummaryApproveResponse,
 )
 from .error_schema import FieldError, ValidationErrorDetail, ResourceError
 
@@ -26,7 +32,16 @@ __all__ = [
     # Integration
     "ConnectedAccountResponse", "ProviderEnum",
     # Activity / sync
-    "SyncJobStatus", "ActivityEventType", "ActivityEventRow", "SyncJobRow",
+    "SyncJobStatus",
+    "ActivityEventType",
+    "ActivityEventRow",
+    "SyncJobRow",
+    "ActivitySummaryListItem",
+    "ActivityEventPublic",
+    "ActivitySummaryDetailResponse",
+    "ActivitySummaryPatchRequest",
+    "ActivitySummaryApproveRequest",
+    "ActivitySummaryApproveResponse",
     # Error
     "FieldError", "ValidationErrorDetail", "ResourceError"
 ]

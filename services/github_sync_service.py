@@ -3,8 +3,8 @@ GitHub 공개 이벤트 수집 → activity_events 정규화 저장
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import date, datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 from models.activity_model import activity_model
 from services.integration_service import integration_service
@@ -124,7 +124,11 @@ class GitHubSyncService:
         self,
         user_id: str,
         last_synced_at: Optional[datetime] = None,
-    ) -> int:
+    ) -> Tuple[int, frozenset[date]]:
+        """
+        반환: (삽입된 행 수 합계, 이번에 정규화한 이벤트의 event_occurred_at UTC calendar 날짜 집합).
+        삽입이 0건이어도(전부 중복) 집합은 채워져 해당 일 요약 재생성에 쓸 수 있음.
+        """
         creds = await integration_service.get_decrypted_token_and_username_for_sync(
             user_id, GITHUB_PROVIDER
         )
@@ -155,16 +159,18 @@ class GitHubSyncService:
 
         if not rows:
             logger.info("No normalizable GitHub events for user_id=%s", user_id)
-            return 0
+            return 0, frozenset()
 
+        occurred_dates = frozenset(r["event_occurred_at"].date() for r in rows)
         inserted = await activity_model.insert_events_ignore(rows)
         logger.info(
-            "GitHub sync user_id=%s events_fetched=%s db_rowcount_sum=%s",
+            "GitHub sync user_id=%s events_fetched=%s db_rowcount_sum=%s summary_dates=%s",
             user_id,
             len(rows),
             inserted,
+            sorted(occurred_dates),
         )
-        return inserted
+        return inserted, occurred_dates
 
 
 github_sync_service = GitHubSyncService()

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, Query, UploadFile, File
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 from utils.common.response import StandardResponse
 from utils.errors.error_codes import SuccessCode
 from services.post_service import post_service
@@ -13,20 +13,25 @@ router = APIRouter(prefix="/v1/posts", tags=["게시글"])
 @router.get("", response_model=PaginatedResponseSchema[List[PostResponse]], status_code=status.HTTP_200_OK)
 async def get_posts(
     post_type: Optional[str] = Query(None, description="게시글 분류 필터 (예: manual, auto_log)"),
+    sort: Literal["published", "activity"] = Query(
+        "published",
+        description="published=게시(작성)일 최신순, activity=자동 로그는 활동 근거일(요약 일자) 기준 최신순",
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     user: Optional[Dict] = Depends(get_optional_user)
 ):
     """
     게시글 목록 조회 (페이징 메타데이터 포함)
-    - 지정 필터 혹은 모든 게시글을 최신순으로 반환
+    - 지정 필터 혹은 모든 게시글을 정렬 옵션에 따라 반환
     - 인증 불필요
     """
     data = await post_service.getAllPosts(
-        limit=limit, 
-        offset=offset, 
+        limit=limit,
+        offset=offset,
         current_user_id=(user or {}).get("userId"),
-        post_type=post_type
+        post_type=post_type,
+        sort_by=sort,
     )
     return StandardResponse.success(SuccessCode.SUCCESS, data)
 

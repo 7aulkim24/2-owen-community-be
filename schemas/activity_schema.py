@@ -1,10 +1,10 @@
 """
-활동 이벤트(activity_events) · 동기화 작업(sync_jobs) 스키마
+활동 이벤트(activity_events) · 동기화 작업(sync_jobs) · 초안 요약(activity_summaries) 스키마
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from .base_schema import BaseSchema
 
@@ -59,3 +59,71 @@ class SyncJobRow(BaseSchema):
     errorMessage: Optional[str] = None
     createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None
+
+
+# --- 초안 검토 & 승인 (Unit 5) ---
+
+
+class ActivitySummaryListItem(BaseSchema):
+    """초안 목록 한 건"""
+
+    summaryId: str
+    summaryDate: date
+    summaryType: str
+    status: str
+    eventCount: int
+    providers: Optional[Any] = None
+    generatedTitle: str
+    generatedContent: str
+    postId: Optional[str] = None
+    createdAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+
+
+class ActivityEventPublic(BaseSchema):
+    """초안 상세에 포함되는 근거 이벤트"""
+
+    eventId: str
+    eventType: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    eventUrl: Optional[str] = None
+    repoName: Optional[str] = None
+    eventOccurredAt: datetime
+
+
+class ActivitySummaryDetailResponse(BaseSchema):
+    """초안 상세 + 해당 일자 근거 이벤트"""
+
+    summaryId: str
+    summaryDate: date
+    summaryType: str
+    status: str
+    eventCount: int
+    providers: Optional[Any] = None
+    generatedTitle: str
+    generatedContent: str
+    postId: Optional[str] = None
+    createdAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+    events: List[ActivityEventPublic] = []
+
+
+class ActivitySummaryPatchRequest(BaseSchema):
+    """초안 본문 수정 (검토 대기 상태에서만)"""
+
+    generatedTitle: Optional[str] = None
+    generatedContent: Optional[str] = None
+
+
+class ActivitySummaryApproveRequest(BaseSchema):
+    """승인 시 피드 본문에 덧붙일 선택 메모"""
+
+    manualContext: Optional[str] = None
+
+
+class ActivitySummaryApproveResponse(BaseSchema):
+    """승인 결과"""
+
+    summaryId: str
+    postId: str

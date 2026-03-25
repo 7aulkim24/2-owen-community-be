@@ -41,20 +41,22 @@ async def dispatch_sync_job(row: Dict[str, Any]) -> None:
         return
 
     try:
-        await github_sync_service.sync_github_events_for_user(
+        _inserted, summary_dates = await github_sync_service.sync_github_events_for_user(
             user_id, row.get("last_synced_at")
         )
         await sync_model.mark_job_completed(job_id)
         logger.info("Sync job completed job_id=%s user_id=%s provider=%s", job_id, user_id, provider)
-        try:
-            summary_date = datetime.now(timezone.utc).date()
-            await summary_service.generate_daily_summary(user_id, summary_date)
-        except Exception:
-            logger.exception(
-                "Daily summary generation failed (sync already completed) job_id=%s user_id=%s",
-                job_id,
-                user_id,
-            )
+        for summary_d in sorted(summary_dates):
+            try:
+                await summary_service.generate_daily_summary(user_id, summary_d)
+            except Exception:
+                logger.exception(
+                    "Daily summary generation failed (sync already completed) "
+                    "job_id=%s user_id=%s summary_date=%s",
+                    job_id,
+                    user_id,
+                    summary_d,
+                )
     except Exception as e:
         logger.exception("Sync job failed job_id=%s", job_id)
         await sync_model.increment_retry(job_id, str(e))

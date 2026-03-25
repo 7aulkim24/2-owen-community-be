@@ -103,6 +103,7 @@ class TemplateSummarizer(BaseSummarizer):
         )[:200]
 
         source_summary = {
+            "summary_date": summary_date.isoformat(),
             "commit_count": commit_total,
             "pr_count": pr_count,
             "issue_count": issue_count,
