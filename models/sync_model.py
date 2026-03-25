@@ -64,6 +64,23 @@ class SyncModel:
             (job_id,),
         )
 
+    async def get_latest_job_for_user_provider(
+        self, user_id: str, provider: str
+    ) -> Optional[Dict[str, Any]]:
+        """해당 사용자·provider의 가장 최근 sync_job (updated_at 기준)"""
+        return await fetch_one(
+            """
+            SELECT job_id, user_id, provider, status, started_at, completed_at,
+                   last_synced_at, retry_count, max_retries, error_message,
+                   created_at, updated_at
+            FROM sync_jobs
+            WHERE user_id = %s AND provider = %s
+            ORDER BY updated_at DESC
+            LIMIT 1
+            """,
+            (user_id, provider),
+        )
+
     async def update_job(
         self,
         job_id: str,

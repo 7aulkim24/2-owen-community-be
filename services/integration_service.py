@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 from config import settings
 from models.integration_model import integration_model
+from models.activity_model import activity_model
+from models.sync_model import sync_model
 from utils.integrations import github
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
@@ -205,6 +207,69 @@ class IntegrationService:
                 )
 
         return await integration_model.soft_delete(account_id, user_id)
+
+    def _dt_iso(self, value: Optional[datetime]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat(sep=" ", timespec="seconds")
+        return str(value)
+
+    async def _assert_active_owned_account(self, account_id: str, user_id: str) -> Dict:
+        acc = await integration_model.get_by_account_id(account_id)
+        if not acc or acc.get("userId") != user_id:
+            raise APIError(ErrorCode.NOT_FOUND, message="연동 계정을 찾을 수 없습니다.")
+        if acc.get("disconnectedAt"):
+            raise APIError(ErrorCode.NOT_FOUND, message="이미 연동 해제된 계정입니다.")
+        return acc
+
+    async def get_sync_status(self, account_id: str, user_id: str) -> Dict:
+        """Unit 6: 연동 계정별 수집 현황 (마지막 job, 이벤트 수)"""
+        acc = await self._assert_active_owned_account(account_id, user_id)
+        provider = acc["provider"]
+        job = await sync_model.get_latest_job_for_user_provider(user_id, provider)
+        event_count = await activity_model.count_events_by_user(user_id)
+
+        if not job:
+            return {
+                "accountId": account_id,
+                "provider": provider,
+                "lastJobStatus": None,
+                "lastSyncedAt": None,
+                "startedAt": None,
+                "completedAt": None,
+                "errorMessage": None,
+                "retryCount": 0,
+                "maxRetries": 3,
+                "eventCount": event_count,
+            }
+
+        return {
+            "accountId": account_id,
+            "provider": provider,
+            "lastJobStatus": job.get("status"),
+            "lastSyncedAt": self._dt_iso(job.get("last_synced_at")),
+            "startedAt": self._dt_iso(job.get("started_at")),
+            "completedAt": self._dt_iso(job.get("completed_at")),
+            "errorMessage": job.get("error_message"),
+            "retryCount": int(job.get("retry_count") or 0),
+            "maxRetries": int(job.get("max_retries") or 3),
+            "eventCount": event_count,
+        }
+
+    async def trigger_account_sync(self, account_id: str, user_id: str) -> Dict[str, str]:
+        """Unit 6: 수동 동기화 — pending job 생성 후 즉시 1회 실행"""
+        acc = await self._assert_active_owned_account(account_id, user_id)
+        provider = acc["provider"]
+        if provider != "github":
+            raise APIError(
+                ErrorCode.BAD_REQUEST,
+                message="현재 수동 동기화는 GitHub만 지원합니다.",
+            )
+        from services.sync_service import trigger_manual_sync
+
+        job_id = await trigger_manual_sync(user_id, provider)
+        return {"jobId": job_id}
 
 
 integration_service = IntegrationService()

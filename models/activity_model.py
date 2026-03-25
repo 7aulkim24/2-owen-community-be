@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from utils.common.id_utils import generate_id
-from utils.database.db import execute, fetch_all
+from utils.database.db import execute, fetch_all, fetch_one
 
 
 class ActivityModel:
@@ -82,6 +82,20 @@ class ActivityModel:
             (user_id, start_dt, end_dt),
         )
         return list(rows) if rows else []
+
+    async def count_events_by_user(self, user_id: str) -> int:
+        """사용자별 수집된 activity_events 총 건수 (대시보드용)"""
+        row = await fetch_one(
+            """
+            SELECT COUNT(*) AS c
+            FROM activity_events
+            WHERE user_id = %s
+            """,
+            (user_id,),
+        )
+        if not row:
+            return 0
+        return int(row.get("c") or 0)
 
 
 activity_model = ActivityModel()

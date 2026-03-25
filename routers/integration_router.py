@@ -77,6 +77,26 @@ async def github_callback(
     return RedirectResponse(url=redirect_url + "?connected=1", status_code=status.HTTP_302_FOUND)
 
 
+@router.get("/{accountId}/sync-status", response_model=StandardResponseSchema[dict])
+async def get_integration_sync_status(
+    accountId: str,
+    user: dict = Depends(get_current_user),
+):
+    """마지막 동기화 상태·수집 이벤트 수 (Unit 6 대시보드)"""
+    data = await integration_service.get_sync_status(accountId, user["userId"])
+    return StandardResponse.success(SuccessCode.SUCCESS, data)
+
+
+@router.post("/{accountId}/sync", response_model=StandardResponseSchema[dict])
+async def post_integration_sync(
+    accountId: str,
+    user: dict = Depends(get_current_user),
+):
+    """수동 동기화 트리거 — sync_job 생성 후 즉시 1회 실행"""
+    data = await integration_service.trigger_account_sync(accountId, user["userId"])
+    return StandardResponse.success(SuccessCode.SUCCESS, data)
+
+
 @router.delete("/{accountId}")
 async def disconnect_integration(accountId: str, user: dict = Depends(get_current_user)):
     """연동 해제"""

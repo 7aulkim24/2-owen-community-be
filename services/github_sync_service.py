@@ -91,6 +91,23 @@ def _normalize_github_event(user_id: str, raw: Dict[str, Any]) -> Optional[Dict[
         "action": payload.get("action"),
     }
 
+    if etype == "PushEvent":
+        raw_commits = payload.get("commits") or []
+        commit_entries: List[Dict[str, Any]] = []
+        for c in raw_commits[:10]:
+            if not isinstance(c, dict):
+                continue
+            sha = c.get("sha") or ""
+            sha_short = sha[:7] if isinstance(sha, str) and len(sha) >= 7 else (sha or None)
+            msg = c.get("message")
+            if msg is not None:
+                msg = str(msg).split("\n", 1)[0].strip()
+                msg = _truncate(msg, 500)
+            if sha_short or msg:
+                commit_entries.append({"sha_short": sha_short, "message": msg})
+        if commit_entries:
+            meta["commits"] = commit_entries
+
     return {
         "event_id": activity_model.new_event_id(),
         "user_id": user_id,
