@@ -58,7 +58,6 @@ def api_client(request):
 
     from main import app
 
-    client = TestClient(app)
     nodeid = request.node.nodeid
     test_call_logs[nodeid] = []
 

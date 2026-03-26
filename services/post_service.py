@@ -1,6 +1,7 @@
 from typing import List, Dict, Union, Optional
 from models.post_model import post_model
-from models.comment_model import comment_model
+from utils.auth import require_owner
+from utils.database.db import run_in_transaction
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
 from schemas import (
@@ -9,6 +10,7 @@ from schemas import (
     PostResponse,
     PostAuthor,
     PostFile,
+    PostImage,
     PaginatedData,
     PaginationMeta,
     ResourceError,
@@ -46,7 +48,6 @@ class PostService:
             post_images = images
         else:
             post_images = await post_model.getPostImages(post["postId"])
-        from schemas import PostImage
         files_list = [
             PostImage(
                 imageId=img["imageId"],
@@ -174,8 +175,12 @@ class PostService:
             )
 
         # 권한 확인 (작성자 확인)
-        if str(post["authorId"]) != str(user["userId"]):
-            raise APIError(ErrorCode.FORBIDDEN, ResourceError(resource="게시글"))
+        require_owner(
+            post["authorId"],
+            user["userId"],
+            resource="게시글",
+            resource_id=postId,
+        )
 
         updated_post = await post_model.updatePost(
             postId=postId,
@@ -187,7 +192,7 @@ class PostService:
         return await self._formatPost(updated_post, current_user_id=user["userId"])
 
     async def deletePost(self, postId: str, user: Dict) -> Dict:
-        """게시글 삭제 로직"""
+        """게시글 삭제 로직 (트랜잭션으로 댓글·게시글 일괄 삭제)"""
         post = await post_model.getPostById(postId)
         if not post:
             raise APIError(
@@ -196,14 +201,25 @@ class PostService:
             )
 
         # 권한 확인
-        if str(post["authorId"]) != str(user["userId"]):
-            raise APIError(ErrorCode.FORBIDDEN, ResourceError(resource="게시글"))
+        require_owner(
+            post["authorId"],
+            user["userId"],
+            resource="게시글",
+            resource_id=postId,
+        )
 
-        # 게시글 삭제 시 관련 댓글들도 함께 삭제
-        await comment_model.deleteCommentsByPost(postId)
+        # 트랜잭션으로 댓글 삭제 + 게시글 삭제를 원자적 처리
+        async def _tx(cursor):
+            await cursor.execute(
+                "UPDATE comments SET deleted_at = NOW() WHERE post_id = %s AND deleted_at IS NULL",
+                (postId,),
+            )
+            await cursor.execute(
+                "UPDATE posts SET deleted_at = NOW() WHERE post_id = %s AND deleted_at IS NULL",
+                (postId,),
+            )
 
-        # Model을 통해 게시글 삭제
-        await post_model.deletePost(postId)
+        await run_in_transaction(_tx)
 
         return post
 

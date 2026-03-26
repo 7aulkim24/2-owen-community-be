@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 import aiomysql
@@ -18,26 +18,13 @@ from schemas.activity_schema import (
     ActivitySummaryDetailResponse,
     ActivitySummaryListItem,
 )
+from utils.common.datetime_utils import utc_day_bounds_naive
 from utils.common.id_utils import generate_id
+from utils.common.json_utils import parse_json_field
 from utils.database.db import execute, run_in_transaction
 from utils.errors.error_codes import ErrorCode
 from utils.errors.exceptions import APIError
 from utils.integrations.summarizer import TemplateSummarizer
-
-
-def _parse_json_field(val: Any) -> Any:
-    if val is None:
-        return None
-    if isinstance(val, (dict, list)):
-        return val
-    if isinstance(val, bytes):
-        val = val.decode("utf-8")
-    if isinstance(val, str):
-        try:
-            return json.loads(val)
-        except json.JSONDecodeError:
-            return val
-    return val
 
 
 def _row_to_list_item(row: Dict[str, Any]) -> ActivitySummaryListItem:
@@ -47,19 +34,13 @@ def _row_to_list_item(row: Dict[str, Any]) -> ActivitySummaryListItem:
         summaryType=str(row["summary_type"]),
         status=str(row["status"]),
         eventCount=int(row["event_count"] or 0),
-        providers=_parse_json_field(row.get("providers")),
+        providers=parse_json_field(row.get("providers")),
         generatedTitle=str(row.get("generated_title") or ""),
         generatedContent=str(row.get("generated_content") or ""),
         postId=str(row["post_id"]) if row.get("post_id") else None,
         createdAt=row.get("created_at"),
         updatedAt=row.get("updated_at"),
     )
-
-
-def _utc_day_bounds_naive(summary_d: date) -> tuple[datetime, datetime]:
-    start = datetime.combine(summary_d, datetime.min.time())
-    end = start + timedelta(days=1)
-    return start, end
 
 
 def _event_row_to_public(row: Dict[str, Any]) -> ActivityEventPublic:
@@ -91,7 +72,7 @@ class ActivityService:
         if not row:
             raise APIError(ErrorCode.NOT_FOUND, message="초안을 찾을 수 없습니다.")
 
-        start_dt, end_dt = _utc_day_bounds_naive(row["summary_date"])
+        start_dt, end_dt = utc_day_bounds_naive(row["summary_date"])
         raw_events = await activity_model.get_events_by_user_date(
             user_id, start_dt, end_dt
         )
@@ -103,7 +84,7 @@ class ActivityService:
             summaryType=str(row["summary_type"]),
             status=str(row["status"]),
             eventCount=int(row["event_count"] or 0),
-            providers=_parse_json_field(row.get("providers")),
+            providers=parse_json_field(row.get("providers")),
             generatedTitle=str(row.get("generated_title") or ""),
             generatedContent=str(row.get("generated_content") or ""),
             postId=str(row["post_id"]) if row.get("post_id") else None,
@@ -194,7 +175,7 @@ class ActivityService:
             raise APIError(ErrorCode.CONFLICT, message="이미 게시글과 연결된 초안입니다.")
 
         summary_d: date = row["summary_date"]
-        start_dt, end_dt = _utc_day_bounds_naive(summary_d)
+        start_dt, end_dt = utc_day_bounds_naive(summary_d)
         events = await activity_model.get_events_by_user_date(
             user_id, start_dt, end_dt
         )

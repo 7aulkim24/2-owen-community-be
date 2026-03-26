@@ -7,6 +7,7 @@ class UserUpdateRequest(BaseSchema):
     profileImageUrl: Optional[str] = None
 
 class PasswordChangeRequest(BaseSchema):
+    currentPassword: Optional[str] = None
     password: str = Field(..., min_length=8)
 
 class UserProfileImageResponse(BaseSchema):

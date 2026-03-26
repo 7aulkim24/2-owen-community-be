@@ -44,29 +44,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from contextlib import asynccontextmanager
+
 _scheduler_task: Optional[asyncio.Task] = None
 
-app = FastAPI(
-    title="Prooflog Backend",
-    description="FastAPI 기반 커뮤니티 백엔드 API",
-    version="1.0.0"
-)
-
-@app.on_event("startup")
-async def startup_event():
-    await init_pool()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global _scheduler_task
+    await init_pool()
     # pytest / TestClient 등에서 백그라운드 루프 방지: DISABLE_SYNC_SCHEDULER=1
     if os.environ.get("DISABLE_SYNC_SCHEDULER", "").strip().lower() in ("1", "true", "yes"):
         logger.info("Background sync scheduler disabled (DISABLE_SYNC_SCHEDULER)")
     else:
         _scheduler_task = asyncio.create_task(run_scheduler())
         logger.info("Background sync scheduler task created")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    global _scheduler_task
+    yield
     if _scheduler_task is not None:
         t = _scheduler_task
         _scheduler_task = None
@@ -80,6 +72,13 @@ async def shutdown_event():
             logger.exception("Background sync scheduler task ended with an error")
         logger.info("Background sync scheduler task shutdown complete")
     await close_pool()
+
+app = FastAPI(
+    title="Prooflog Backend",
+    description="FastAPI 기반 커뮤니티 백엔드 API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 # 정적 파일 서빙
 UPLOAD_DIR = "public"

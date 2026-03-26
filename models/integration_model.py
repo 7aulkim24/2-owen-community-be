@@ -4,17 +4,14 @@
 
 from datetime import datetime
 from typing import Dict, List, Optional
+
+from models.base_model import BaseModel
 from utils.common.id_utils import generate_id
 from utils.database.db import fetch_one, fetch_all, execute
 
 
-class IntegrationModel:
+class IntegrationModel(BaseModel):
     """연동 계정 데이터 관리 Model"""
-
-    def _format_datetime(self, value) -> Optional[str]:
-        if not value:
-            return None
-        return value.isoformat()
 
     def _row_to_dict(self, row: Optional[Dict]) -> Optional[Dict]:
         if not row:

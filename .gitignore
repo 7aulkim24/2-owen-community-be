@@ -1,4 +1,4 @@
-# Python
+# 파이썬 캐시/빌드 산출물
 __pycache__/
 *.py[cod]
 *$py.class
@@ -21,7 +21,7 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment# 환경 변수 파일
+# 가상환경 / 환경 변수 파일
 .env
 .env.production
 .env.*
@@ -30,25 +30,29 @@ wheels/
 venv/
 ENV/
 
-# IDEs
+# IDE 설정
 .vscode/
 .idea/
 
-# OS
+# 운영체제 메타데이터
 .DS_Store
 Thumbs.db
 
-# Public uploads
+# 업로드 파일
 public/image/post/*
 public/image/profile/*
 
-# Test
+# 테스트 산출물
 tests/test_results.json
-# Pytest 캡처·리다이렉트 등 임시 테스트 산출물 (저장소에 커밋하지 않음)
+# pytest 캡처·리다이렉트 등 임시 테스트 산출물
 output.txt
 pytest_output*.txt
 tests/**/output.txt
 
-# Log
+# 로그 파일
 /logs/
 *.log
+
+# 런타임 캐시
+.pytest_cache/
+.mypy_cache/

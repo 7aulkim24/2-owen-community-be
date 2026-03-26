@@ -5,21 +5,15 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from models.activity_model import activity_model
 from models.summary_model import summary_model
+from utils.common.datetime_utils import utc_day_bounds_naive
 from utils.integrations.summarizer import TemplateSummarizer
 
 logger = logging.getLogger(__name__)
-
-
-def _utc_day_bounds_naive(summary_date: date) -> Tuple[datetime, datetime]:
-    """activity_events.event_occurred_at은 naive UTC 기준으로 저장됨."""
-    start = datetime.combine(summary_date, datetime.min.time())
-    end = start + timedelta(days=1)
-    return start, end
 
 
 class SummaryService:
@@ -32,7 +26,7 @@ class SummaryService:
         summary_date: date,
         summary_type: str = "daily",
     ) -> Optional[str]:
-        start_dt, end_dt = _utc_day_bounds_naive(summary_date)
+        start_dt, end_dt = utc_day_bounds_naive(summary_date)
         events: List[Dict[str, Any]] = await activity_model.get_events_by_user_date(
             user_id, start_dt, end_dt
         )

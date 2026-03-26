@@ -1,40 +1,13 @@
-import json
 from typing import Any, Dict, List, Optional, Union
 
+from models.base_model import BaseModel
 from utils.common.id_utils import generate_id
+from utils.common.json_utils import parse_source_summary
 from utils.database.db import fetch_one, fetch_all, execute
 
 
-class PostModel:
+class PostModel(BaseModel):
     """게시글 데이터 관리 Model"""
-
-    def _normalizeId(self, idVal: Union[str, any]) -> str:
-        """ID 정규화 (문자열로 변환)"""
-        return str(idVal)
-
-    def _format_datetime(self, value) -> Optional[str]:
-        if not value:
-            return None
-        return value.isoformat()
-
-    def _parse_source_summary(self, val: Any) -> Optional[Dict[str, Any]]:
-        """MySQL JSON 컬럼이 aiomysql에서 str/bytes로 올 수 있음 — PostResponse는 dict 기대."""
-        if val is None:
-            return None
-        if isinstance(val, dict):
-            return val
-        if isinstance(val, (bytes, bytearray)):
-            val = val.decode("utf-8")
-        if isinstance(val, str):
-            s = val.strip()
-            if not s:
-                return None
-            try:
-                out = json.loads(s)
-                return out if isinstance(out, dict) else None
-            except json.JSONDecodeError:
-                return None
-        return None
 
     def _row_to_post(self, row: Optional[Dict]) -> Optional[Dict]:
         if not row:
@@ -45,7 +18,7 @@ class PostModel:
             "content": row["content"],
             "postType": row.get("post_type", "manual"),
             "sourceType": row.get("source_type"),
-            "sourceSummary": self._parse_source_summary(row.get("source_summary")),
+            "sourceSummary": parse_source_summary(row.get("source_summary")),
             "isDraft": bool(row.get("is_draft", False)),
             "authorId": row["author_id"],
             "authorNickname": row.get("author_nickname"),
@@ -138,6 +111,7 @@ class PostModel:
             order_clause = "ORDER BY p.created_at DESC"
 
         where_clause = "WHERE p.deleted_at IS NULL"
+        # aiomysql: %s는 쿼리 텍스트 등장 순서대로 바인딩됨. is_liked(SELECT) → post_type(WHERE) → LIMIT → OFFSET.
         params_list = [current_user_id_str]
 
         if post_type:
@@ -164,28 +138,11 @@ class PostModel:
                 p.updated_at,
                 p.hits,
                 p.comment_count,
-                COUNT(pl.user_id) AS like_count,
-                MAX(CASE WHEN pl.user_id = %s THEN 1 ELSE 0 END) AS is_liked
+                (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.post_id) AS like_count,
+                (SELECT EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.post_id AND pl.user_id = %s)) AS is_liked
             FROM posts p
             LEFT JOIN users u ON u.user_id = p.user_id
-            LEFT JOIN post_likes pl ON pl.post_id = p.post_id
             {where_clause}
-            GROUP BY
-                p.post_id,
-                p.user_id,
-                u.nickname,
-                u.profile_image_url,
-                p.title,
-                p.content,
-                p.post_type,
-                p.source_type,
-                p.source_summary,
-                p.is_draft,
-                p.post_image_url,
-                p.created_at,
-                p.updated_at,
-                p.hits,
-                p.comment_count
             {order_clause}
             LIMIT %s OFFSET %s
             """,
@@ -227,27 +184,10 @@ class PostModel:
                 p.updated_at,
                 p.hits,
                 p.comment_count,
-                COUNT(pl.user_id) AS like_count
+                (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.post_id) AS like_count
             FROM posts p
             LEFT JOIN users u ON u.user_id = p.user_id
-            LEFT JOIN post_likes pl ON pl.post_id = p.post_id
             WHERE p.post_id = %s AND p.deleted_at IS NULL
-            GROUP BY
-                p.post_id,
-                p.user_id,
-                u.nickname,
-                u.profile_image_url,
-                p.title,
-                p.content,
-                p.post_type,
-                p.source_type,
-                p.source_summary,
-                p.is_draft,
-                p.post_image_url,
-                p.created_at,
-                p.updated_at,
-                p.hits,
-                p.comment_count
             """,
             (postIdStr,),
         )
@@ -350,10 +290,6 @@ class PostModel:
         )
         return row["comment_count"] if row else 0
 
-    def updateAuthorNickname(self, authorId: str, newNickname: str) -> int:
-        """작성자 닉네임 일괄 업데이트 (DB 정규화로 인해 no-op)"""
-        return 0
-
     async def getLikeCount(self, postId: Union[str, any]) -> int:
         """좋아요 수 조회"""
         postIdStr = self._normalizeId(postId)
@@ -413,22 +349,22 @@ class PostModel:
         return result
 
     async def addPostImages(self, postId: Union[str, any], imageUrls: List[str]) -> int:
-        """게시글에 여러 이미지 추가"""
+        """게시글에 여러 이미지 추가 (배치 INSERT)"""
         if not imageUrls:
             return 0
         
         postIdStr = self._normalizeId(postId)
-        inserted_count = 0
+        placeholders = []
+        params = []
         
         for idx, imageUrl in enumerate(imageUrls):
             imageId = generate_id()
-            await execute(
-                "INSERT INTO post_images (image_id, post_id, image_url, sort_order, created_at) VALUES (%s, %s, %s, %s, NOW())",
-                (imageId, postIdStr, imageUrl, idx),
-            )
-            inserted_count += 1
+            placeholders.append("(%s, %s, %s, %s, NOW())")
+            params.extend([imageId, postIdStr, imageUrl, idx])
         
-        return inserted_count
+        query = f"INSERT INTO post_images (image_id, post_id, image_url, sort_order, created_at) VALUES {', '.join(placeholders)}"
+        affected = await execute(query, tuple(params))
+        return affected
 
     async def deletePostImages(self, postId: Union[str, any]) -> int:
         """게시글의 모든 이미지 삭제"""

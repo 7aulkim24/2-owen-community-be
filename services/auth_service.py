@@ -1,6 +1,7 @@
 from typing import Dict
 from fastapi import Request
 from models.user_model import user_model
+from utils.auth import clear_auth_session, write_auth_session
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
 from schemas import SignupRequest, LoginRequest, UserResponse, FieldError
@@ -25,15 +26,12 @@ class AuthService:
         if not user:
             raise APIError(ErrorCode.INVALID_CREDENTIALS)
 
-        request.session["userId"] = user["userId"]
-        request.session["email"] = user["email"]
-        request.session["nickname"] = user["nickname"]
-        request.session["profileImageUrl"] = user.get("profileImageUrl")
+        write_auth_session(request.session, user)
         return UserResponse.model_validate(user)
 
     async def logout(self, request: Request) -> Dict:
         """로그아웃"""
-        request.session.clear()
+        clear_auth_session(request.session)
         return {}
 
     async def getMe(self, user: Dict) -> UserResponse:

@@ -1,19 +1,12 @@
 from typing import Dict, List, Optional, Union
+
+from models.base_model import BaseModel
 from utils.common.id_utils import generate_id
 from utils.database.db import fetch_one, fetch_all, execute
 
 
-class CommentModel:
+class CommentModel(BaseModel):
     """댓글 데이터 관리 Model"""
-
-    def _normalizeId(self, idVal: Union[str, any]) -> str:
-        """ID 정규화 (문자열로 변환)"""
-        return str(idVal)
-
-    def _format_datetime(self, value) -> Optional[str]:
-        if not value:
-            return None
-        return value.isoformat()
 
     def _row_to_comment(self, row: Optional[Dict]) -> Optional[Dict]:
         if not row:
@@ -174,10 +167,6 @@ class CommentModel:
         """전체 댓글 수 조회"""
         row = await fetch_one("SELECT COUNT(*) AS cnt FROM comments WHERE deleted_at IS NULL")
         return row["cnt"] if row else 0
-
-    def updateUserNickname(self, userId: str, newNickname: str) -> int:
-        """사용자 닉네임 일괄 업데이트 (DB 정규화로 인해 no-op)"""
-        return 0
 
 
 # Model 인스턴스 생성

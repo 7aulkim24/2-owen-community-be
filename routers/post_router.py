@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, Query, UploadFile, File
 from typing import Dict, List, Literal, Optional
 from utils.common.response import StandardResponse
-from utils.errors.error_codes import SuccessCode
+from utils.errors.error_codes import SuccessCode, ErrorCode
+from utils.errors.exceptions import APIError
 from services.post_service import post_service
 from schemas import PostCreateRequest, PostUpdateRequest, PostResponse, PostImageUploadResponse, PostImagesUploadResponse, StandardResponse as StandardResponseSchema, PaginatedResponse as PaginatedResponseSchema
 from utils.middleware.auth_middleware import get_current_user, get_optional_user
@@ -103,8 +104,6 @@ async def upload_post_images(postFiles: List[UploadFile] = File(...), user: Dict
     - 실제 로컬 폴더에 이미지 저장 및 URL 리스트 반환
     """
     if len(postFiles) > 5:
-        from utils.errors.exceptions import APIError
-        from utils.errors.error_codes import ErrorCode
         raise APIError(ErrorCode.BAD_REQUEST, {"message": "최대 5개의 이미지만 업로드할 수 있습니다"})
     
     fileUrls = [save_upload_file(postFile, "post") for postFile in postFiles]

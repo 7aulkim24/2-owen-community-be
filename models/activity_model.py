@@ -16,30 +16,25 @@ class ActivityModel:
     async def insert_events_ignore(self, rows: List[Dict[str, Any]]) -> int:
         """
         (provider, external_id) 중복이면 삽입 생략.
-        INSERT IGNORE 대신 NOT EXISTS를 쓰면 MySQL이 중복마다 Warning(1062)을 내지 않음.
+        INSERT IGNORE를 사용하여 배치로 처리 (UNIQUE KEY uq_provider_external 활용).
         rows: snake_case 키 — event_id, user_id, provider, event_type, external_id,
               title, description, event_url, repo_name, event_metadata(dict|None), event_occurred_at(datetime)
         """
+        if not rows:
+            return 0
+
+        BATCH_SIZE = 50
         inserted = 0
-        for r in rows:
-            meta = r.get("event_metadata")
-            if meta is not None and isinstance(meta, (dict, list)):
-                meta = json.dumps(meta, ensure_ascii=False)
-            n = await execute(
-                """
-                INSERT INTO activity_events (
-                    event_id, user_id, provider, event_type, external_id,
-                    title, description, event_url, repo_name, event_metadata,
-                    event_occurred_at
-                )
-                SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                FROM DUAL
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM activity_events ae
-                    WHERE ae.provider = %s AND ae.external_id = %s
-                )
-                """,
-                (
+        for i in range(0, len(rows), BATCH_SIZE):
+            batch = rows[i : i + BATCH_SIZE]
+            placeholders = []
+            params: List[Any] = []
+            for r in batch:
+                meta = r.get("event_metadata")
+                if meta is not None and isinstance(meta, (dict, list)):
+                    meta = json.dumps(meta, ensure_ascii=False)
+                placeholders.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+                params.extend([
                     r["event_id"],
                     r["user_id"],
                     r["provider"],
@@ -51,10 +46,20 @@ class ActivityModel:
                     r.get("repo_name"),
                     meta,
                     r["event_occurred_at"],
-                    r["provider"],
-                    r["external_id"],
-                ),
-            )
+                ])
+            query = f"""
+                INSERT IGNORE INTO activity_events (
+                    event_id, user_id, provider, event_type, external_id,
+                    title, description, event_url, repo_name, event_metadata,
+                    event_occurred_at
+                ) VALUES {', '.join(placeholders)}
+            """
+            
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*Duplicate entry.*for key.*uq_provider_external.*")
+                n = await execute(query, tuple(params))
+                
             inserted += int(n)
         return inserted
 

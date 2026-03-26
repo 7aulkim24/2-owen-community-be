@@ -1,20 +1,14 @@
 from typing import Dict, Optional, List, Union
+
 import bcrypt
+
+from models.base_model import BaseModel
 from utils.common.id_utils import generate_id
 from utils.database.db import fetch_one, fetch_all, execute
 
 
-class UserModel:
+class UserModel(BaseModel):
     """사용자 데이터 관리 Model"""
-
-    def _normalizeId(self, idVal: Union[str, any]) -> str:
-        """ID 정규화 (문자열로 변환)"""
-        return str(idVal)
-
-    def _format_datetime(self, value) -> Optional[str]:
-        if not value:
-            return None
-        return value.isoformat()
 
     def _row_to_user(self, row: Optional[Dict]) -> Optional[Dict]:
         if not row:

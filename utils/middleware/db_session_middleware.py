@@ -1,11 +1,12 @@
 import json
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from config import settings
+from utils.auth import build_auth_context
 from utils.database.db import fetch_one, execute
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,8 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
                 clear_cookie = True
 
         request.scope["session"] = session
+        request.state.auth = build_auth_context(session)
+        request.state.user_id = request.state.auth.user_id
         request.state._session_key = session_key
         request.state._session_snapshot = json.dumps(session, sort_keys=True)
         request.state._clear_cookie = clear_cookie
@@ -65,7 +68,7 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
             if not session_key:
                 session_key = secrets.token_urlsafe(32)
 
-            expires_at = datetime.utcnow() + timedelta(seconds=settings.session_timeout)
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.session_timeout)
             data_json = json.dumps(current_session)
             user_id = current_session.get("userId")
 

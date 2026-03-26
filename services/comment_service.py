@@ -1,6 +1,7 @@
 from typing import List, Dict, Union
 from models.comment_model import comment_model
 from models.post_model import post_model
+from utils.auth import require_owner
 from utils.errors.exceptions import APIError
 from utils.errors.error_codes import ErrorCode
 from schemas import CommentCreateRequest, CommentUpdateRequest, CommentResponse, CommentAuthor, ResourceError
@@ -67,8 +68,12 @@ class CommentService:
         if str(comment["postId"]) != postId:
             raise APIError(ErrorCode.COMMENT_NOT_FOUND, ResourceError(resource="댓글", id=commentId))
 
-        if str(comment["userId"]) != str(user["userId"]):
-            raise APIError(ErrorCode.FORBIDDEN, ResourceError(resource="댓글"))
+        require_owner(
+            comment["userId"],
+            user["userId"],
+            resource="댓글",
+            resource_id=commentId,
+        )
 
         updated_comment = await comment_model.updateComment(
             commentId=commentId,
@@ -90,8 +95,12 @@ class CommentService:
         if str(comment["postId"]) != postId:
             raise APIError(ErrorCode.COMMENT_NOT_FOUND, ResourceError(resource="댓글", id=commentId))
 
-        if str(comment["userId"]) != str(user["userId"]):
-            raise APIError(ErrorCode.FORBIDDEN, ResourceError(resource="댓글"))
+        require_owner(
+            comment["userId"],
+            user["userId"],
+            resource="댓글",
+            resource_id=commentId,
+        )
 
         await comment_model.deleteComment(commentId)
         
